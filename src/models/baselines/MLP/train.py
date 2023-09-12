@@ -49,9 +49,9 @@ def parse_args():
     parser_user.add_argument("--early_stop_optuna", type=int, default=80,
                              help="Early stop for Optuna during validation phase.")
     parser_user.add_argument("--k", type=int, default=5, help="The number of folds during the validation phase.")
-    parser_user.add_argument("--trials", type=int, default=2,
+    parser_user.add_argument("--trials", type=int, default=200,
                              help="The trials of Optuna during the validation phase.")
-    parser_user.add_argument("--seeds", type=int, default=[1], nargs="+",
+    parser_user.add_argument("--seeds", type=int, default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], nargs="+",
                              help="Define which seeds to use for reproducibility.")
     parser_user.add_argument("--workspace", type=str, default="results/IMDb",
                              help="The name of the folder where the results will be stored.")
