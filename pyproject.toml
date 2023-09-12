@@ -25,7 +25,7 @@ torch-sparse = {url = "https://data.pyg.org/whl/torch-1.8.0%2Bcu111/torch_sparse
 torch-cluster = {url = "https://data.pyg.org/whl/torch-1.8.0%2Bcu111/torch_cluster-1.5.9-cp39-cp39-win_amd64.whl"}
 torch-geometric = "2.0.1"
 torchcontrib = "0.0.2"
-xgboost = "1.4.2"
+xgboost = "2.0.0"
 
 [build-system]
 requires = ["poetry-core"]
