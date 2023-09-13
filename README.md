@@ -1,5 +1,9 @@
 # Mentor
 
+This is a PyTorch implementation of Mentor (*Modeling Teams Performance Using Deep Representational Learning on Graphs*)
+
+Authors: Pietro Foini, Francesco Carli, Nicolò Gozzi, Nicola Perra, Rossano Schifanella
+
 ## How to install
 
 ### Local virtual environment
@@ -28,6 +32,23 @@ Now you're all set! 🎉 Happy coding! 😄✨
 
 ## Dataset
 
+The datasets used are divided into two main categories: **synthetic** and **real-world** datasets. Synthetic data has been 
+generated in such a way as to systematically validate the theoretical assumptions regarding the key contributions of 
+the three effects: *topology*, *centrality*, and *position*. Real-world datasets, on the other hand, have been employed to 
+assess the effectiveness of the models thus developed.
+
+For more details on both types of datasets, we refer you to the respective folder where the analyses related to them have been included.
+
+### Synthetic
+
+### Real-world
+
+Freely accessible and copyright-free data concerning team management and their respective performance are lacking. 
+The three datasets we have focused on are as follows:
+
+<p align="center">
+ <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" />  <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" />  <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /> 
+</p>
 
 ## Model
 
