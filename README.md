@@ -1,6 +1,6 @@
 # Mentor
 
-This is a PyTorch implementation of Mentor (*Modeling Teams Performance Using Deep Representational Learning on Graphs*)
+This is a PyTorch implementation of Mentor (📖 *Modeling Teams Performance Using Deep Representational Learning on Graphs*)
 
 Authors: Pietro Foini, Francesco Carli, Nicolò Gozzi, Nicola Perra, Rossano Schifanella
 
@@ -46,9 +46,22 @@ For more details on both types of datasets, we refer you to the respective folde
 Freely accessible and copyright-free data concerning team management and their respective performance are lacking. 
 The three datasets we have focused on are as follows:
 
-<p align="center">
- <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" />  <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" />  <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /> 
-</p>
+<div align="center">
+  <div style="display: inline-block; text-align: center; margin-right: 20px;">
+    <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br>
+    [Dribbble](https://dribbble.com/)
+  </div>
+
+  <div style="display: inline-block; text-align: center; margin-right: 20px;">
+    <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br>
+    [Kaggle](https://www.kaggle.com/)
+  </div>
+
+  <div style="display: inline-block; text-align: center;">
+    <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br>
+    [IMDb](https://www.imdb.com/)
+  </div>
+</div>
 
 ## Model
 
