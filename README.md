@@ -50,15 +50,15 @@ The three datasets we have focused on are as follows:
   <tr>
     <td style="text-align: center; padding: 20px;">
       <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br>
-      <a href="https://example.com/dribbble">Dribbble</a>
+      <a href="https://example.com/dribbble" style="text-align: center; display: block;">Dribbble</a>
     </td>
     <td style="text-align: center; padding: 20px;">
       <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br>
-      <a href="https://example.com/kaggle">Kaggle</a>
+      <a href="https://example.com/kaggle" style="text-align: center; display: block;">Kaggle</a>
     </td>
     <td style="text-align: center; padding: 20px;">
       <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br>
-      <a href="https://example.com/imdb">IMDb</a>
+      <a href="https://example.com/imdb" style="text-align: center; display: block;">IMDb</a>
     </td>
   </tr>
 </table>
