@@ -1,6 +1,6 @@
 # Mentor
 
-This is a PyTorch implementation of Mentor (📖 *Modeling Teams Performance Using Deep Representational Learning on Graphs*)
+This is a PyTorch implementation of Mentor (📖 [Modeling Teams Performance Using Deep Representational Learning on Graphs](https://arxiv.org/abs/2206.14741))
 
 Authors: Pietro Foini, Francesco Carli, Nicolò Gozzi, Nicola Perra, Rossano Schifanella
 
@@ -49,17 +49,17 @@ The three datasets we have focused on are as follows:
 <div align="center">
   <div style="display: inline-block; text-align: center; margin-right: 20px;">
     <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br>
-    [Dribbble](https://dribbble.com/)
+    <a href="https://example.com/dribbble">Dribbble</a>
   </div>
 
   <div style="display: inline-block; text-align: center; margin-right: 20px;">
     <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br>
-    [Kaggle](https://www.kaggle.com/)
+    <a href="https://example.com/kaggle">Kaggle</a>
   </div>
 
   <div style="display: inline-block; text-align: center;">
     <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br>
-    [IMDb](https://www.imdb.com/)
+    <a href="https://example.com/imdb">IMDb</a>
   </div>
 </div>
 
