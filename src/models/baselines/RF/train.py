@@ -12,8 +12,8 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, confusion_m
 import optuna
 from optuna.samplers import TPESampler
 
-from src.models.load_dataset import load_graph_information
-from src.models.baselines.utils import HandEngineeredFeatures, EarlyStoppingCallback
+from src.models.utils import load_graph_information, EarlyStoppingCallback
+from src.models.baselines.get_features import HandEngineeredFeatures
 
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
@@ -22,11 +22,7 @@ os.environ["PYTHONWARNINGS"] = "ignore"
 
 
 def parse_args():
-    """
-    This function set argparse arguments for performing training, validation and test phases over a provided dataset.
-
-    :return: argparse arguments
-    """
+    """Set argparse arguments for handling training phase on a provided dataset."""
     parser_user = argparse.ArgumentParser(description="Train Random Forest Classifier (RF) using different random seed.")
 
     parser_user.add_argument("--dataset_path", type=str, default="../../../datasets/real-world/IMDb/data",
@@ -48,6 +44,7 @@ def parse_args():
 
 
 def hyper_search(trial, x, y, cv, nodes_attribute, seed):
+    """Objective function for Optuna optimization."""
     # Search configuration.
     criterion = trial.suggest_categorical("criterion", ["entropy", "gini"])
     max_depth = trial.suggest_int("max_depth", 1, 40)
@@ -81,11 +78,7 @@ def hyper_search(trial, x, y, cv, nodes_attribute, seed):
 
 
 def main():
-    """
-    Perform training, validation and test phases over a provided dataset using Logistic Regression.
-
-    :return:
-    """
+    """Perform training, validation and test phases over a provided dataset using RF."""
     # Get parameters.
     args = parse_args()
 
@@ -94,7 +87,8 @@ def main():
         os.makedirs(args.workspace)
 
     # Load dataset information.
-    graph, teams_composition, teams_label, nodes_attribute = load_graph_information(args.dataset_path)
+    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
+        args.dataset_path)
 
     # Get the network features at team level.
     extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)

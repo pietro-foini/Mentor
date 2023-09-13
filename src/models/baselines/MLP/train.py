@@ -19,8 +19,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from torch_geometric.data import Data, DataLoader
 
-from src.models.load_dataset import load_graph_information
-from src.models.baselines.utils import HandEngineeredFeatures, EarlyStoppingCallback
+from src.models.utils import load_graph_information, EarlyStoppingCallback
+from src.models.baselines.get_features import HandEngineeredFeatures
 
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
@@ -36,14 +36,10 @@ scaler_dict = {
 
 
 def parse_args():
-    """
-    This function set argparse arguments for performing training, validation and test phases over a provided dataset.
-
-    :return: argparse arguments
-    """
+    """Set argparse arguments for handling training phase on a provided dataset."""
     parser_user = argparse.ArgumentParser(description="Train Multi Layer Perceptron (MLP) using different random seed.")
 
-    parser_user.add_argument("--dataset_path", type=str, default="../../../datasets/real-world/IMDb/data",
+    parser_user.add_argument("--dataset_path", type=str, default="../../../datasets/synthetic/position/data",
                              help="The path to the folder dataset containing graph's files.")
     parser_user.add_argument("--test_size", type=float, default=0.2, help="The percentage of samples to use for test.")
     parser_user.add_argument("--early_stop_optuna", type=int, default=80,
@@ -53,7 +49,7 @@ def parse_args():
                              help="The trials of Optuna during the validation phase.")
     parser_user.add_argument("--seeds", type=int, default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], nargs="+",
                              help="Define which seeds to use for reproducibility.")
-    parser_user.add_argument("--workspace", type=str, default="results/IMDb",
+    parser_user.add_argument("--workspace", type=str, default="results/position",
                              help="The name of the folder where the results will be stored.")
 
     args = parser_user.parse_args()
@@ -138,6 +134,7 @@ def create_dataloader(x, y, batch_size=64, shuffle=True):
 
 
 def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
+    """Objective function for Optuna optimization."""
     # Fix seed for reproducibility.
     torch.manual_seed(seed)
     random.seed(seed)
@@ -174,7 +171,7 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
         x_val, y_val = x.loc[val_idx].values, y.loc[val_idx].values
 
         # Normalization.
-        norm = globals()[norm_func]().fit(x_train)
+        norm = scaler_dict[norm_func].fit(x_train)
         x_train = norm.transform(x_train)
         x_val = norm.transform(x_val)
 
@@ -195,11 +192,7 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
 
 
 def main():
-    """
-    Perform training, validation and test phases over a provided dataset using Logistic Regression.
-
-    :return:
-    """
+    """Perform training, validation and test phases over a provided dataset using MLP."""
     # Get parameters.
     args = parse_args()
 
@@ -208,7 +201,8 @@ def main():
         os.makedirs(args.workspace)
 
     # Load dataset information.
-    graph, teams_composition, teams_label, nodes_attribute = load_graph_information(args.dataset_path)
+    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
+        args.dataset_path)
 
     # Get the network features at team level.
     extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)
