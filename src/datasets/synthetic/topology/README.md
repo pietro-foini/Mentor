@@ -5,7 +5,7 @@
 Let's create several directed subgraphs/teams by populating them with three different possible patterns of connections (motifs):
 
 <p align="center">
-  <img src="./data/motifs.png" width="600">
+  <img src="motifs.png" width="600">
 </p>
 
 If a team is created using a particular motif, this means that the connectivity pattern between its own members is 
