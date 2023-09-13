@@ -22,6 +22,8 @@ website (https://www.python.org/) and follow the installation instructions for y
    1. `poetry lock --no-update`
    2. `poetry install`
 
+Now you're all set! 🎉 Happy coding! 😄✨
+
 -----
 
 ## Dataset
