@@ -65,13 +65,10 @@ The synthetic datasets are as follows:
 - **Attribute**: the teams' label is ruled by the attributes if the nodes
 
 <div align="center">
-
-| <img src="./src/images/graphia.png" width="800" /><br> | 
-|--------------------------------------------------------| 
-| Postion and topology ([Graphia](https://graphia.app/)) | 
-
+<img src="./src/images/graphia.png" width="800" /><br>
 </div>
 
+<sub><sup>* The visualization tool is [Graphia](https://graphia.app/).</sup></sub>
 
 ### Real-world
 
