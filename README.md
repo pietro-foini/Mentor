@@ -46,22 +46,10 @@ For more details on both types of datasets, we refer you to the respective folde
 Freely accessible and copyright-free data concerning team management and their respective performance are lacking. 
 The three datasets we have focused on are as follows:
 
-<table align="center">
-  <tr>
-    <td style="text-align: center; padding: 20px;">
-      <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br>
-      <a href="https://example.com/dribbble" style="text-align: center; display: block;">Dribbble</a>
-    </td>
-    <td style="text-align: center; padding: 20px;">
-      <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br>
-      <a href="https://example.com/kaggle" style="text-align: center; display: block;">Kaggle</a>
-    </td>
-    <td style="text-align: center; padding: 20px;">
-      <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br>
-      <a href="https://example.com/imdb" style="text-align: center; display: block;">IMDb</a>
-    </td>
-  </tr>
-</table>
+| [Dribbble](https://example.com/dribbble)                            | [Kaggle](https://example.com/kaggle)                                    | [IMDb](https://example.com/imdb)                                      |
+| ----------------------------------- |-------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br> | <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br> | <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br> |
+
 
 ## Model
 
