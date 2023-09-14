@@ -41,6 +41,21 @@ For more details on both types of datasets, we refer you to the respective folde
 
 ### Synthetic
 
+The synthetic datasets were created to isolate the three core effects of the current methodology. They served as a 
+foundation during the construction of *Mentor*, ensuring that these behaviors were effectively captured and leveraged. 
+The synthetic datasets are as follows:
+
+- **Position**: the teams' label is ruled by their position into the graph
+- **Centrality**: the teams' label is ruled by the in/out degree centrality of the nodes outside the team
+  - In-degree;
+  - Out-degree;
+- **Topology**: the teams' label is ruled by the internal connection structures of the teams
+  - Topology (v1);
+  - Topology (v2);
+  - Topology (v3);
+- **Position and Topology**: the teams' label is ruled by a combination of topological and positional effects
+- **Attribute**: the teams' label is ruled by the attributes if the nodes
+
 ### Real-world
 
 Freely accessible and copyright-free data concerning team management and their respective performance are lacking. 
@@ -53,6 +68,8 @@ The three datasets we have focused on are as follows:
 | <img src="./src/datasets/real-world/Dribbble/logo.png" width="200" /><br> | <img src="./src/datasets/real-world/Kaggle/logo.png" width="200" /><br> | <img src="./src/datasets/real-world/IMDb/logo.png" width="200" /><br> |
 
 </div>
+
+For each of these datasets, a subset was selected.
 
 ## Model
 
