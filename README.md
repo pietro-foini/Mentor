@@ -30,6 +30,14 @@ Now you're all set! 🎉 Happy coding! 😄✨
 
 -----
 
+## Overview
+
+### What makes a team effective? 💪
+
+<p align="center">
+<img src="./src/images/overview.png" width="800">
+</p>
+
 ## Dataset
 
 The datasets used are divided into two main categories: **synthetic** and **real-world** datasets. Synthetic data has been 
@@ -55,6 +63,12 @@ The synthetic datasets are as follows:
   - Topology (v3);
 - **Position and Topology**: the teams' label is ruled by a combination of topological and positional effects
 - **Attribute**: the teams' label is ruled by the attributes if the nodes
+
+<div align="center">
+    <img src="./src/images/graphia.png" alt="Image Alt Text" width="800" />
+  <br />
+  [Graphia](https://graphia.app/)
+</div>
 
 ### Real-world
 
