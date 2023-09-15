@@ -68,7 +68,7 @@ The synthetic datasets are as follows:
 <img src="./src/images/graphia.png" width="800" /><br>
 </div>
 
-<sub><sup>* The visualization tool is [Graphia](https://graphia.app/).</sup></sub>
+<sub><sup>*The visualization tool used is [Graphia](https://graphia.app/).</sup></sub>
 
 ### Real-world
 
