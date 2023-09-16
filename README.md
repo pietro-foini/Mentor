@@ -47,6 +47,8 @@ assess the effectiveness of the models thus developed.
 
 For more details on both types of datasets, we refer you to the respective folder where the analyses related to them have been included.
 
+**NB:** The contextual channel described on paper refers to *position* channel.
+
 ### Synthetic
 
 The synthetic datasets were created to isolate the three core effects of the current methodology. They served as a 
@@ -87,6 +89,20 @@ For each of these datasets, a subset was selected.
 
 ## Model
 
+### Mentor 
+
+We propose a graph neural network model designed to predict a team’s performance while identifying the drivers that
+determine such outcome. 💡🧐
+
+<p align="center">
+<img src="./src/images/framework.png" width="800">
+</p>
+
+In particular, the model is based on three architectural channels: *topological*, *centrality* 
+and *positional* which capture different factors potentially shaping teams’ success. We endow the model with two attention
+mechanisms to boost model performance and allow interpretability. A first mechanism allows pinpointing key members 
+inside the team. A second mechanism allows us to quantify the contributions of the three driver effects in determining 
+the outcome performance.
 
 ## License
 
@@ -94,4 +110,4 @@ MIT
 
 ## Contacts
 
-Please open an issue or contact pietro.foini1@gmail.com with any questions.
+Please open an issue or contact pietro.foini1@gmail.com with any questions. 🙂
