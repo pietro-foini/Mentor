@@ -1,4 +1,6 @@
-# Usage
+# Mentor
+
+## Usage
 
 In order to obtain the results regarding the performance of our model run the following commands:
 
