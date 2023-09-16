@@ -1,0 +1,29 @@
+```{r}
+mydata = read.csv("../results/3-channels/synthetic/position/channels_attention_coefficients/4.csv")
+```
+```{r, fig.width=2.8, fig.height=2.3}
+library(ggtern)
+
+ggtern(data = mydata, mapping = aes(topology, centrality, position)) +
+theme_bw() +
+stat_density_tern(geom='polygon',n=17, # n=50, bins=50,           n=17,
+                  aes(fill  = ..level.., alpha = ..level..), base='identity',  
+                  position = "identity") +
+geom_point(colour = "black", alpha = 0.25, shape = 1) +
+scale_fill_gradient2(high = "red", low = "#539edd", name = "Density")  +
+guides(fill = guide_colorbar(order = 1), alpha = guide_none()) +
+theme_showarrows() + 
+theme(legend.justification = c(0.65, 0.1), 
+      legend.position      = c(1.0, 0.4), 
+      legend.key.width = unit(.3, "cm"),
+      legend.key.height = unit(.3, "cm"),
+      text = element_text(size=8), 
+      tern.axis.title.L = element_text(hjust = 0),
+      tern.axis.title.R = element_text(hjust = 1)) + 
+labs(x = "\n \n topology", xarrow="topology",
+     y = "\n \n centrality", yarrow="centrality",
+     z = "\n \n position", zarrow="contextual")
+
+ggsave("attention.png")
+```
+

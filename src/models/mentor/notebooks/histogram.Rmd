@@ -1,0 +1,16 @@
+```{r}
+mydata = read.csv("gini.csv")
+```
+```{r}
+png("gini.png", width = 136, height = 115, units='mm', res = 300)
+
+h <- hist(mydata$gini, plot = FALSE)
+
+opar <- par(lwd=2.2)
+plot(h, xaxt = "n", xlab = "Gini Index", ylab = "Counts", # col = "coral",
+     main = "",  cex.lab=1.4, cex.axis=1.4, xlim=c(0, 1))
+axis(side=1,at=seq(0,1,0.1),labels=seq(0,1,0.1), cex.lab=1.6, cex.axis=1.6)
+par(opar)
+
+```
+
