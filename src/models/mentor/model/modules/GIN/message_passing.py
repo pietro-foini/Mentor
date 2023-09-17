@@ -39,13 +39,15 @@ class MessagePassing(torch.nn.Module):
         self.node_dim = node_dim
 
         self.inspector = Inspector(self)
-        # With the following commands you save the input parameters of the various functions that you pass to them in a dictionary with the key name of the function and the corresponding parameters as a value.
+        # With the following commands you save the input parameters of the various functions that you pass to them in
+        # a dictionary with the key name of the function and the corresponding parameters as a value.
         self.inspector.inspect(self.message)  # Ex: {"message": OrderedDict([('x_j', <Parameter "x_j">)])}.
         self.inspector.inspect(self.aggregate, pop_first=True)
         self.inspector.inspect(self.message_and_aggregate, pop_first=True)
         self.inspector.inspect(self.update, pop_first=True)
 
-        # It stores in a set some arguments of the various functions analyzed and of these that are passed to it (in truth they are repeated). However, arguments that are defined in 'self.special_args' are not considered.
+        # It stores in a set some arguments of the various functions analyzed and of these that are passed to it
+        # (in truth they are repeated). However, arguments that are defined in 'self.special_args' are not considered.
         self.__user_args__ = self.inspector.keys(["message", "aggregate", "update"]).difference(self.special_args)
         self.__fused_user_args__ = self.inspector.keys(["message_and_aggregate", "update"]).difference(
             self.special_args
@@ -115,8 +117,10 @@ class MessagePassing(torch.nn.Module):
         raise ValueError
 
     def __collect__(self, args, edge_index, size, kwargs):
-        # First of all, the directionality of how the convolution is made is defined (obviously for an indirect network the choice is irrelevant).
-        # That is, if the convolution is made with respect to the neighbors that point to you (source_to_target) or with respect to the neighbors that you point to (target_to_source).
+        # First of all, the directionality of how the convolution is made is defined (obviously for an indirect network
+        # the choice is irrelevant).
+        # That is, if the convolution is made with respect to the neighbors that point to you (source_to_target) or
+        # with respect to the neighbors that you point to (target_to_source).
         i, j = (1, 0) if self.flow == "source_to_target" else (0, 1)
 
         out = {}
@@ -135,7 +139,11 @@ class MessagePassing(torch.nn.Module):
 
                 if isinstance(data, Tensor):
                     self.__set_size__(size, dim, data)
-                    # In this part it does a very important thing: it generates a tensor as long as there are edges in the network (n_edges, n_feature / embedding). It is the features / embedding of the nodes that point. For example, in the default configuration (source_to_target), if in the 'edge_index' we have that the first edge is the pair [12, 6], then the first value of this 'inputs' is the feature / embedding of 12 (of node 12 ).
+                    # In this part it does a very important thing: it generates a tensor as long as there are edges in
+                    # the network (n_edges, n_feature / embedding). It is the features / embedding of the nodes that
+                    # point. For example, in the default configuration (source_to_target), if in the 'edge_index' we
+                    # have that the first edge is the pair [12, 6], then the first value of this 'inputs' is the
+                    # feature / embedding of 12 (of node 12 ).
                     data = self.__lift__(data, edge_index, j if arg[-2:] == "_j" else i)
 
                 out[arg] = data
@@ -201,7 +209,8 @@ class MessagePassing(torch.nn.Module):
             coll_dict = self.__collect__(self.__fused_user_args__, edge_index, size, kwargs)
 
             msg_aggr_kwargs = self.inspector.distribute("message_and_aggregate", coll_dict)
-            # Call the 'message_and_aggregate' function. If another class inherits from the current class then the 'message_and_aggregate' function of the reference class and not of this parent class will be used.
+            # Call the 'message_and_aggregate' function. If another class inherits from the current class then the
+            # 'message_and_aggregate' function of the reference class and not of this parent class will be used.
             out = self.message_and_aggregate(edge_index, **msg_aggr_kwargs)
 
             update_kwargs = self.inspector.distribute("update", coll_dict)
@@ -212,11 +221,16 @@ class MessagePassing(torch.nn.Module):
             coll_dict = self.__collect__(self.__user_args__, edge_index, size, kwargs)
 
             msg_kwargs = self.inspector.distribute("message", coll_dict)
-            # Call the 'message' function. If another class inherits from the current class then the 'message' function (if it has it) of the reference class and not of this parent class will be used. In our case it calls the 'message' function of GINConv and not the one defined in this class.
+            # Call the 'message' function. If another class inherits from the current class then the 'message'
+            # function (if it has it) of the reference class and not of this parent class will be used. In our case
+            # it calls the 'message' function of GINConv and not the one defined in this class.
             out = self.message(**msg_kwargs)
 
             aggr_kwargs = self.inspector.distribute("aggregate", coll_dict)
-            # Call the 'aggregate' function. If another class inherits from the current class then the 'aggregate' function of the reference class will be used and not of this parent class. In our case, however, the GINConv class does not have the 'aggregate' function and therefore uses the 'aggregate' function defined in this class.
+            # Call the 'aggregate' function. If another class inherits from the current class then the 'aggregate'
+            # function of the reference class will be used and not of this parent class. In our case, however, the
+            # GINConv class does not have the 'aggregate' function and therefore uses the 'aggregate' function
+            # defined in this class.
             out = self.aggregate(out, **aggr_kwargs)
 
             update_kwargs = self.inspector.distribute("update", coll_dict)
@@ -249,9 +263,18 @@ class MessagePassing(torch.nn.Module):
             ptr = expand_left(ptr, dim=self.node_dim, dims=inputs.dim())
             return segment_csr(inputs, ptr, reduce=self.aggr)
         else:
-            # 'inputs' is a tensor as long as there are edges in the network (n_edges, n_feature / embedding). It is the features / embedding of the nodes that point. For example, in the default configuration (source_to_target), if in the 'edge_index' we have that the first edge is the pair [12, 6], then the first value of this 'inputs' is the feature / embedding of 12 (of node 12 ).
-            # 'index' instead contains the indexes of the nodes to which the edges reach. For example in the above case we will have that the first value of 'index' is 6. This tensor can therefore contain repeated values if a node is pointed to by more nodes. Then through scatter the features / embedding of the nodes pointing to node 6 (in the default configuration) are aggregated according to the function defined in 'reduce'.
-            # What is obtained in output is therefore a tensor along the number of nodes of the network in which the aggregate values (features / embedding) corresponding to the neighbors (who points, in the case of the default configuration) are stored. If a node is not pointed to by anyone it will not aggregate with anyone (in the default configuration).
+            # 'inputs' is a tensor as long as there are edges in the network (n_edges, n_feature / embedding). It is
+            # the features / embedding of the nodes that point. For example, in the default configuration
+            # (source_to_target), if in the 'edge_index' we have that the first edge is the pair [12, 6], then the
+            # first value of this 'inputs' is the feature / embedding of 12 (of node 12 ).
+            # 'index' instead contains the indexes of the nodes to which the edges reach. For example in the above
+            # case we will have that the first value of 'index' is 6. This tensor can therefore contain repeated values
+            # if a node is pointed to by more nodes. Then through scatter the features / embedding of the nodes pointing
+            # to node 6 (in the default configuration) are aggregated according to the function defined in 'reduce'.
+            # What is obtained in output is therefore a tensor along the number of nodes of the network in which the
+            # aggregate values (features / embedding) corresponding to the neighbors (who points, in the case of the
+            # default configuration) are stored. If a node is not pointed to by anyone it will not aggregate with anyone
+            # (in the default configuration).
             if edge_weight is not None:
                 inputs = inputs * edge_weight
             return scatter(inputs, index, dim=self.node_dim, dim_size=dim_size, reduce=self.aggr)

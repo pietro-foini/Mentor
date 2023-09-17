@@ -35,7 +35,9 @@ class GINConv(MessagePassing):
         else:
             self.register_buffer(
                 "eps", torch.Tensor([eps])
-            )  # So in general: buffers = ‘fixed tensors / non-learnable parameters / stuff that does not require gradient’; parameters = ‘learnable parameters, requires gradient’. Quindi in questo caso questo parametro non contribuisce alla backpropagation.
+            )  # So in general: buffers = ‘fixed tensors / non-learnable parameters / stuff that does not require
+            # gradient’; parameters = ‘learnable parameters, requires gradient’. In this case, this parameter does not
+            # contribute to the backpropagation.
         self.reset_parameters(init_func)
 
     def reset_parameters(self, init_func):

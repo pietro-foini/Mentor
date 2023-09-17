@@ -1,14 +1,7 @@
-import inspect
-import os
-import os.path as osp
-import re
 from inspect import Parameter
-from itertools import chain
 from typing import List, Optional, Set
-from uuid import uuid1
 
 import torch
-from jinja2 import Template
 from torch import Tensor
 from torch_geometric.typing import Adj, Size
 from torch_scatter import gather_csr, scatter, segment_csr
@@ -290,9 +283,18 @@ class MessagePassing(torch.nn.Module):
             ptr = expand_left(ptr, dim=self.node_dim, dims=inputs.dim())
             return segment_csr(inputs, ptr, reduce=self.aggr)
         else:
-            # 'inputs' is a tensor as long as there are edges in the network (n_edges, n_feature / embedding). It is the features / embedding of the nodes that point. For example, in the default configuration (source_to_target), if in the 'edge_index' we have that the first edge is the pair [12, 6], then the first value of this 'inputs' is the feature / embedding of 12 (of node 12 ).
-            # 'index' instead contains the indexes of the nodes to which the edges reach. For example in the above case we will have that the first value of 'index' is 6. This tensor can therefore contain repeated values if a node is pointed to by more nodes. Then through scatter the features / embedding of the nodes pointing to node 6 (in the default configuration) are aggregated according to the function defined in 'reduce'.
-            # What is obtained in output is therefore a tensor along the number of nodes of the network in which the aggregate values (features / embedding) corresponding to the neighbors (who points, in the case of the default configuration) are stored. If a node is not pointed to by anyone it will not aggregate with anyone (in the default configuration).
+            # 'inputs' is a tensor as long as there are edges in the network (n_edges, n_feature / embedding). It is
+            # the features / embedding of the nodes that point. For example, in the default configuration
+            # (source_to_target), if in the 'edge_index' we have that the first edge is the pair [12, 6], then the
+            # first value of this 'inputs' is the feature / embedding of 12 (of node 12 ).
+            # 'index' instead contains the indexes of the nodes to which the edges reach. For example in the above
+            # case we will have that the first value of 'index' is 6. This tensor can therefore contain repeated values
+            # if a node is pointed to by more nodes. Then through scatter the features / embedding of the nodes pointing
+            # to node 6 (in the default configuration) are aggregated according to the function defined in 'reduce'.
+            # What is obtained in output is therefore a tensor along the number of nodes of the network in which the
+            # aggregate values (features / embedding) corresponding to the neighbors (who points, in the case of the
+            # default configuration) are stored. If a node is not pointed to by anyone it will not aggregate with anyone
+            # (in the default configuration).
             if edge_weight is not None:
                 inputs = inputs * edge_weight
             return scatter(inputs, index, dim=self.node_dim, dim_size=dim_size, reduce=self.aggr)
