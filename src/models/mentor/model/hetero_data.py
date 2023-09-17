@@ -1,41 +1,52 @@
-from typing import Union
-from collections import Counter
 import itertools
+from collections import Counter
+from typing import Union
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix
 import torch
-from torch_geometric.utils import from_networkx
+from scipy.sparse import coo_matrix
 from torch_geometric.data import HeteroData
+from torch_geometric.utils import from_networkx
 
-from .anchors import all_pairs_shortest_path_length, get_random_anchorset, get_anchor_distances
+from .anchors import all_pairs_shortest_path_length, get_anchor_distances, get_random_anchorset
 
 
 class DataObject(object):
-    def __init__(self, graph: Union[nx.Graph, nx.DiGraph], teams_composition: dict, teams_members: dict,
-                 teams_label: dict, nodes_not_belong_to_teams: list, nodes_attribute: pd.DataFrame = None,
-                 nodes_name: dict = None, cutoff: int = 8, c: int = 1):
-        """
-        Data class containing HeteroData object storing information related to isolated sub-graphs and hypergraph.
+    """
+    Data class containing HeteroData object storing information related to isolated sub-graphs and hypergraph.
 
-        :param graph: a networkx undirected/directed graph representing the ecosystem to work on it
-        :param teams_composition: a dictionary containing the mapping from graph node id to corresponding teams,
-            e.g. {node_id: [...]}
-        :param teams_members: a dictionary containing the mapping from team id to corresponding members,
-            e.g. {team_id: [...]}
-        :param teams_label: a dictionary containing the class of each team: {team_id: C}
-        :param nodes_not_belong_to_teams: list containing the graph node ids that not belong to any team
-        :param nodes_attribute: an optional multi-index pandas dataframe (level 0 for node id and level 1 for team id)
-            containing node attributes
-        :param nodes_name: an optional dictionary containing the mapping from node id to corresponding name,
-            e.g. {node_id: "name"}
-        :param cutoff: the depth to stop the search during the computation of the shortest paths between nodes of the
-            hypergraph. Only paths of length <= cutoff are returned (position channel)
-        :param c: a hyperparameter for generation of anchor-sets (position channel)
-        :return:
-        """
+    :param graph: a networkx undirected/directed graph representing the ecosystem to work on it
+    :param teams_composition: a dictionary containing the mapping from graph node id to corresponding teams,
+        e.g. {node_id: [...]}
+    :param teams_members: a dictionary containing the mapping from team id to corresponding members,
+        e.g. {team_id: [...]}
+    :param teams_label: a dictionary containing the class of each team: {team_id: C}
+    :param nodes_not_belong_to_teams: list containing the graph node ids that not belong to any team
+    :param nodes_attribute: an optional multi-index pandas dataframe (level 0 for node id and level 1 for team id)
+        containing node attributes
+    :param nodes_name: an optional dictionary containing the mapping from node id to corresponding name,
+        e.g. {node_id: "name"}
+    :param cutoff: the depth to stop the search during the computation of the shortest paths between nodes of the
+        hypergraph. Only paths of length <= cutoff are returned (position channel)
+    :param c: a hyperparameter for generation of anchor-sets (position channel)
+    :return:
+    """
+
+    def __init__(
+        self,
+        graph: Union[nx.Graph, nx.DiGraph],
+        teams_composition: dict,
+        teams_members: dict,
+        teams_label: dict,
+        nodes_not_belong_to_teams: list,
+        nodes_attribute: pd.DataFrame = None,
+        nodes_name: dict = None,
+        cutoff: int = 8,
+        c: int = 1,
+    ):
+        """Initialization."""
         # Define some parameters.
         self.graph = graph
         self.teams_composition = teams_composition
@@ -80,14 +91,16 @@ class DataObject(object):
             # Store attributes (if exist).
             if self.nodes_attribute is not None:
                 nodes_attribute_team = self.nodes_attribute.xs(team_id, level="team", axis=0).loc[
-                    list(subgraph.nodes())]
+                    list(subgraph.nodes())
+                ]
                 features.append(nodes_attribute_team.values)
             else:
                 features.append(np.ones((len(members), 1)))
 
             # Relabel nodes.
-            subgraph = nx.relabel.convert_node_labels_to_integers(subgraph,
-                                                                  first_label=isolated_graph.number_of_nodes())
+            subgraph = nx.relabel.convert_node_labels_to_integers(
+                subgraph, first_label=isolated_graph.number_of_nodes()
+            )
 
             # Define new team composition without overlapping.
             nx.set_node_attributes(subgraph, {node: team_id for node in subgraph.nodes()}, "Team")
@@ -132,8 +145,9 @@ class DataObject(object):
         if self.graph.is_directed():
             new_edges = [(x, y, {"weight": v}) for (x, y), v in Counter(edges_hypernode).items()]
         else:
-            new_edges = [(x, y, {"weight": v}) for (x, y), v in
-                         Counter(tuple(sorted(tup)) for tup in edges_hypernode).items()]
+            new_edges = [
+                (x, y, {"weight": v}) for (x, y), v in Counter(tuple(sorted(tup)) for tup in edges_hypernode).items()
+            ]
 
         hypergraph.add_edges_from(new_edges)
         hypergraph.remove_edges_from(nx.selfloop_edges(hypergraph))
@@ -191,8 +205,9 @@ class DataObject(object):
         dists = all_pairs_shortest_path_length(self.hypergraph, cutoff=self.cutoff)
         # Get distances into matrix notation.
         rows, cols, data = zip(*[(row, col, 1 / (dists[row][col] + 1)) for row in dists for col in dists[row]])
-        dists = coo_matrix((data, (rows, cols)),
-                           shape=(self.hypergraph.number_of_nodes(), self.hypergraph.number_of_nodes())).toarray()
+        dists = coo_matrix(
+            (data, (rows, cols)), shape=(self.hypergraph.number_of_nodes(), self.hypergraph.number_of_nodes())
+        ).toarray()
 
         # Generation of anchor-sets.
         anchorsets = get_random_anchorset(self.hypergraph.number_of_nodes(), c=self.c)

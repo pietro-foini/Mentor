@@ -1,16 +1,17 @@
-from typing import Union
-import pickle
 import logging
-import os
-
-import pandas as pd
-import numpy as np
-import networkx as nx
 import operator
+import os
+import pickle
+from typing import Union
+
+import networkx as nx
+import numpy as np
+import pandas as pd
 
 
-def load_graph_information(dataset_path: str) -> tuple[
-    Union[nx.Graph, nx.DiGraph], dict, dict, pd.DataFrame, dict, dict, dict]:
+def load_graph_information(
+    dataset_path: str,
+) -> tuple[Union[nx.Graph, nx.DiGraph], dict, dict, pd.DataFrame, dict, dict, dict]:
     """
     Load graph information from the given dataset path.
 
@@ -65,14 +66,20 @@ def load_graph_information(dataset_path: str) -> tuple[
     # Mapping from node id to corresponding teams.
     teams_composition = nx.get_node_attributes(graph, "Team")
     # Mapping from team id to corresponding members.
-    teams_members = \
-        pd.DataFrame(teams_composition.items(), columns=["node", "team"]).dropna().explode("team").groupby("team")[
-            "node"].apply(list).to_dict()
+    teams_members = (
+        pd.DataFrame(teams_composition.items(), columns=["node", "team"])
+        .dropna()
+        .explode("team")
+        .groupby("team")["node"]
+        .apply(list)
+        .to_dict()
+    )
     # Get nodes that not belong to the teams: None value in correspondence of no team belonging.
     nodes_not_belong_to_teams = [node for node, teams in teams_composition.items() if teams is None]
     # Check if there exist some overlap between the members of the teams.
-    overlapping_members = True if max(
-        [len(teams) for node, teams in teams_composition.items() if teams is not None]) > 1 else False
+    overlapping_members = (
+        True if max([len(teams) for node, teams in teams_composition.items() if teams is not None]) > 1 else False
+    )
 
     # Log useful dataset information.
     logging.info(f"Directed graph: {graph.is_directed()}")

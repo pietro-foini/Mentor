@@ -1,17 +1,17 @@
+import pytorch_lightning as pl
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import BatchNorm1d, Dropout, Linear, ModuleList, ReLU, Sequential
 from torch.utils.tensorboard.writer import SummaryWriter
-from torch.nn import ModuleList, Sequential, Linear, BatchNorm1d, ReLU, Dropout
 from torch_scatter import scatter
-from torchmetrics import Accuracy, AUROC, F1Score, ConfusionMatrix
 from torchcontrib.optim import SWA
-import pytorch_lightning as pl
+from torchmetrics import AUROC, Accuracy, ConfusionMatrix, F1Score
 
 from .modules.ATTENTION.conv import GlobalAttention
-from .modules.PGNN.conv import PGNN
-from .modules.GIN.conv import GINConv
 from .modules.GAT.conv import GATv2Conv
+from .modules.GIN.conv import GINConv
 from .modules.inits import *
+from .modules.PGNN.conv import PGNN
 
 
 # Topology channel.
@@ -25,21 +25,23 @@ class TopologyChannel(nn.Module):
         self.gat = gat
 
         if self.gat:
-            self.conv_GAT = GATv2Conv(input_dim, hidden_dim, flow=flow_conv, aggr=agg_conv, add_self_loops=True,
-                                      init_func=init_func)
+            self.conv_GAT = GATv2Conv(
+                input_dim, hidden_dim, flow=flow_conv, aggr=agg_conv, add_self_loops=True, init_func=init_func
+            )
             input_dim = hidden_dim
 
         self.convs = ModuleList()
         for i in range(num_layers):
-            mlp = Sequential(Linear(input_dim, hidden_dim),
-                             BatchNorm1d(hidden_dim),
-                             ReLU(inplace=True),
-                             Dropout(p=dropout),
-                             Linear(hidden_dim, hidden_dim),
-                             BatchNorm1d(hidden_dim),
-                             ReLU(inplace=True))
-            conv = GINConv(mlp, aggr=agg_conv, train_eps=True, flow=flow_conv, normalize=False,
-                           init_func=init_func)
+            mlp = Sequential(
+                Linear(input_dim, hidden_dim),
+                BatchNorm1d(hidden_dim),
+                ReLU(inplace=True),
+                Dropout(p=dropout),
+                Linear(hidden_dim, hidden_dim),
+                BatchNorm1d(hidden_dim),
+                ReLU(inplace=True),
+            )
+            conv = GINConv(mlp, aggr=agg_conv, train_eps=True, flow=flow_conv, normalize=False, init_func=init_func)
             self.convs.append(conv)
             input_dim = hidden_dim
 
@@ -62,15 +64,16 @@ class CentralityChannel(nn.Module):
 
         self.convs = ModuleList()
         for _ in range(num_layers):
-            mlp = Sequential(Linear(input_dim, hidden_dim),
-                             BatchNorm1d(hidden_dim),
-                             ReLU(inplace=True),
-                             Dropout(p=dropout),
-                             Linear(hidden_dim, hidden_dim),
-                             BatchNorm1d(hidden_dim),
-                             ReLU(inplace=True))
-            conv = GINConv(mlp, aggr=agg_conv, train_eps=True, flow=flow_conv, normalize=False,
-                           init_func=init_func)
+            mlp = Sequential(
+                Linear(input_dim, hidden_dim),
+                BatchNorm1d(hidden_dim),
+                ReLU(inplace=True),
+                Dropout(p=dropout),
+                Linear(hidden_dim, hidden_dim),
+                BatchNorm1d(hidden_dim),
+                ReLU(inplace=True),
+            )
+            conv = GINConv(mlp, aggr=agg_conv, train_eps=True, flow=flow_conv, normalize=False, init_func=init_func)
             self.convs.append(conv)
             input_dim = hidden_dim
 
@@ -84,12 +87,22 @@ class CentralityChannel(nn.Module):
 class PositionChannel(nn.Module):
     """Architecture of the 'position' channel."""
 
-    def __init__(self, input_dim, hidden_dim, output_dim, n_anchorsets, num_layers, agg_conv, use_dropout,
-                 dropout, init_func):
+    def __init__(
+        self, input_dim, hidden_dim, output_dim, n_anchorsets, num_layers, agg_conv, use_dropout, dropout, init_func
+    ):
         super().__init__()
 
-        self.conv = PGNN(input_dim, hidden_dim, output_dim, n_anchorsets, num_layers, aggr=agg_conv,
-                         use_dropout=use_dropout, dropout=dropout, init_func=init_func)
+        self.conv = PGNN(
+            input_dim,
+            hidden_dim,
+            output_dim,
+            n_anchorsets,
+            num_layers,
+            aggr=agg_conv,
+            use_dropout=use_dropout,
+            dropout=dropout,
+            init_func=init_func,
+        )
 
     def forward(self, x, dists_max, dists_argmax, mask_teams):
         x = self.conv(x, dists_max, dists_argmax)
@@ -98,54 +111,80 @@ class PositionChannel(nn.Module):
 
 # Single framework.
 class SingleFramework(pl.LightningModule):
-    def __init__(self, input_dim_t: int, input_dim_c: int, input_dim_p: int, out_dim: int, n_anchorsets: int,
-                 hidden_dim: int = 64, flow_conv_t: str = "source_to_target", flow_conv_c: str = "source_to_target",
-                 agg_conv_t: str = "sum", agg_conv_c: str = "sum", agg_conv_p: str = "sum", agg_team_t: str = "sum",
-                 use_dropout_p: bool = False, dropout_t: float = 0.5, dropout_c: float = 0.5, dropout_p: float = 0.5,
-                 dropout_a: float = 0.5, epochs: int = 100, lr_base: float = 0.01, lr_swa: float = 0.005,
-                 swa_start: float = 0.75, swa_freq: int = 5, gat_t: bool = True, topology: bool = True,
-                 centrality: bool = True, position: bool = True, tensorboard: SummaryWriter = None,
-                 init_func: torch.Tensor = None, **kwargs):
-        """
-        Architecture of the 'Single Framework' composed by three channels: topology, centrality and position.
+    """
+    Architecture of the 'Single Framework' composed by three channels: topology, centrality and position.
 
-        :param input_dim_t: the input layer dimension of the topology channel
-        :param input_dim_c: the input layer dimension of the centrality channel
-        :param input_dim_p: the input layer dimension of the position channel
-        :param out_dim: the output layer dimension of the framework (number of classes to predict)
-        :param n_anchorsets: the number of anchor sets for the P-GNN algorithm of the position channel
-        :param hidden_dim: the hidden layer dimension for all the activated channels
-        :param flow_conv_t: the direction of the convolutional flow for the topology channel; allowed values are
-            'source_to_target' and 'target_to_source'
-        :param flow_conv_c: the direction of the convolutional flow for the centrality channel; allowed values are
-            'source_to_target' and 'target_to_source'
-        :param agg_conv_t: the type of messages aggregation for topology channel; allowed values are 'sum', 'mean',
-            'max', 'min'
-        :param agg_conv_c: the type of messages aggregation for centrality channel; allowed values are 'sum', 'mean',
-            'max', 'min'
-        :param agg_conv_p: the type of messages aggregation for position channel; allowed values are 'sum', 'mean',
-            'max', 'min'
-        :param agg_team_t: the type of aggregation for topology channel from node level to team level; allowed values
-            are 'sum', 'mean', 'max', 'min'
-        :param use_dropout_p: whether to activate the dropout for the position channel
-        :param dropout_t: the value of the dropout for the topology channel
-        :param dropout_c: the value of the dropout for the centrality channel
-        :param dropout_p: the value of the dropout for the position channel
-        :param dropout_a: the value of the dropout for the attention layer
-        :param epochs: the numbers of training epochs
-        :param lr_base: the value of the learning rate
-        :param lr_swa: the value of the SWA learning rate
-        :param swa_start: the start SWA
-        :param swa_freq: the epochs frequency in computing SWA
-        :param gat_t: whether to activate the attention GAT layer for the topology channel
-        :param topology: whether to activate the topology channel or not
-        :param centrality: whether to activate the centrality channel or not
-        :param position: whether to activate the position channel or not
-        :param tensorboard: a tensorboard instance for storing training information
-        :param init_func: the type of weights' initialization
-        :param kwargs:
-        :return:
-        """
+    :param input_dim_t: the input layer dimension of the topology channel
+    :param input_dim_c: the input layer dimension of the centrality channel
+    :param input_dim_p: the input layer dimension of the position channel
+    :param out_dim: the output layer dimension of the framework (number of classes to predict)
+    :param n_anchorsets: the number of anchor sets for the P-GNN algorithm of the position channel
+    :param hidden_dim: the hidden layer dimension for all the activated channels
+    :param flow_conv_t: the direction of the convolutional flow for the topology channel; allowed values are
+        'source_to_target' and 'target_to_source'
+    :param flow_conv_c: the direction of the convolutional flow for the centrality channel; allowed values are
+        'source_to_target' and 'target_to_source'
+    :param agg_conv_t: the type of messages aggregation for topology channel; allowed values are 'sum', 'mean',
+        'max', 'min'
+    :param agg_conv_c: the type of messages aggregation for centrality channel; allowed values are 'sum', 'mean',
+        'max', 'min'
+    :param agg_conv_p: the type of messages aggregation for position channel; allowed values are 'sum', 'mean',
+        'max', 'min'
+    :param agg_team_t: the type of aggregation for topology channel from node level to team level; allowed values
+        are 'sum', 'mean', 'max', 'min'
+    :param use_dropout_p: whether to activate the dropout for the position channel
+    :param dropout_t: the value of the dropout for the topology channel
+    :param dropout_c: the value of the dropout for the centrality channel
+    :param dropout_p: the value of the dropout for the position channel
+    :param dropout_a: the value of the dropout for the attention layer
+    :param epochs: the numbers of training epochs
+    :param lr_base: the value of the learning rate
+    :param lr_swa: the value of the SWA learning rate
+    :param swa_start: the start SWA
+    :param swa_freq: the epochs frequency in computing SWA
+    :param gat_t: whether to activate the attention GAT layer for the topology channel
+    :param topology: whether to activate the topology channel or not
+    :param centrality: whether to activate the centrality channel or not
+    :param position: whether to activate the position channel or not
+    :param tensorboard: a tensorboard instance for storing training information
+    :param init_func: the type of weights' initialization
+    :param kwargs:
+    :return:
+    """
+
+    def __init__(
+        self,
+        input_dim_t: int,
+        input_dim_c: int,
+        input_dim_p: int,
+        out_dim: int,
+        n_anchorsets: int,
+        hidden_dim: int = 64,
+        flow_conv_t: str = "source_to_target",
+        flow_conv_c: str = "source_to_target",
+        agg_conv_t: str = "sum",
+        agg_conv_c: str = "sum",
+        agg_conv_p: str = "sum",
+        agg_team_t: str = "sum",
+        use_dropout_p: bool = False,
+        dropout_t: float = 0.5,
+        dropout_c: float = 0.5,
+        dropout_p: float = 0.5,
+        dropout_a: float = 0.5,
+        epochs: int = 100,
+        lr_base: float = 0.01,
+        lr_swa: float = 0.005,
+        swa_start: float = 0.75,
+        swa_freq: int = 5,
+        gat_t: bool = True,
+        topology: bool = True,
+        centrality: bool = True,
+        position: bool = True,
+        tensorboard: SummaryWriter = None,
+        init_func: torch.Tensor = None,
+        **kwargs,
+    ):
+        """Initialization class."""
         super().__init__()
 
         # In order to use swa correctly we need to turn off automatic optimization.
@@ -165,20 +204,41 @@ class SingleFramework(pl.LightningModule):
         # Channels.
         self.channels = []
         if topology:
-            self.topology = TopologyChannel(input_dim=input_dim_t, hidden_dim=hidden_dim, num_layers=3,
-                                            dropout=dropout_t, flow_conv=flow_conv_t, agg_conv=agg_conv_t,
-                                            agg_team=agg_team_t, gat=gat_t, init_func=init_func)
+            self.topology = TopologyChannel(
+                input_dim=input_dim_t,
+                hidden_dim=hidden_dim,
+                num_layers=3,
+                dropout=dropout_t,
+                flow_conv=flow_conv_t,
+                agg_conv=agg_conv_t,
+                agg_team=agg_team_t,
+                gat=gat_t,
+                init_func=init_func,
+            )
             self.channels.append("topology")
         if centrality:
-            self.centrality = CentralityChannel(input_dim=input_dim_c, hidden_dim=hidden_dim, num_layers=3,
-                                                flow_conv=flow_conv_c, agg_conv=agg_conv_c, dropout=dropout_c,
-                                                init_func=init_func)
+            self.centrality = CentralityChannel(
+                input_dim=input_dim_c,
+                hidden_dim=hidden_dim,
+                num_layers=3,
+                flow_conv=flow_conv_c,
+                agg_conv=agg_conv_c,
+                dropout=dropout_c,
+                init_func=init_func,
+            )
             self.channels.append("centrality")
         if position:
-            self.position = PositionChannel(input_dim=input_dim_p, hidden_dim=hidden_dim, output_dim=hidden_dim,
-                                            n_anchorsets=n_anchorsets, num_layers=2, agg_conv=agg_conv_p,
-                                            use_dropout=use_dropout_p, dropout=dropout_p,
-                                            init_func=init_func)
+            self.position = PositionChannel(
+                input_dim=input_dim_p,
+                hidden_dim=hidden_dim,
+                output_dim=hidden_dim,
+                n_anchorsets=n_anchorsets,
+                num_layers=2,
+                agg_conv=agg_conv_p,
+                use_dropout=use_dropout_p,
+                dropout=dropout_p,
+                init_func=init_func,
+            )
             self.channels.append("position")
 
         self.n_channels = len(self.channels)
@@ -187,11 +247,13 @@ class SingleFramework(pl.LightningModule):
 
         # Attention.
         if self.n_channels > 1:
-            self.attention = Sequential(Linear(hidden_dim, hidden_dim),
-                                        BatchNorm1d(hidden_dim),
-                                        ReLU(inplace=True),
-                                        Dropout(p=dropout_a),
-                                        Linear(hidden_dim, 1))
+            self.attention = Sequential(
+                Linear(hidden_dim, hidden_dim),
+                BatchNorm1d(hidden_dim),
+                ReLU(inplace=True),
+                Dropout(p=dropout_a),
+                Linear(hidden_dim, 1),
+            )
 
             self.aggregation = GlobalAttention(self.attention, init_func=init_func)
 
@@ -216,19 +278,27 @@ class SingleFramework(pl.LightningModule):
         # Channels.
         x = []
         if "topology" in self.channels:
-            x_1, self.attentions_topology = self.topology(batch["topology"].x_norm, batch["topology"].edge_index,
-                                                          batch["topology"].composition)
+            x_1, self.attentions_topology = self.topology(
+                batch["topology"].x_norm, batch["topology"].edge_index, batch["topology"].composition
+            )
             x_1 = F.normalize(x_1, p=2, dim=-1)
             x.append(x_1)
         if "centrality" in self.channels:
-            x_2 = self.centrality(batch["centrality"].x, batch["centrality"].edge_index,
-                                  batch["centrality"].edge_weight,
-                                  batch["centrality"].mask_teams)
+            x_2 = self.centrality(
+                batch["centrality"].x,
+                batch["centrality"].edge_index,
+                batch["centrality"].edge_weight,
+                batch["centrality"].mask_teams,
+            )
             x_2 = F.normalize(x_2, p=2, dim=-1)
             x.append(x_2)
         if "position" in self.channels:
-            x_3 = self.position(batch["position"].x, batch["position"].dists_max, batch["position"].dists_argmax,
-                                batch["position"].mask_teams)
+            x_3 = self.position(
+                batch["position"].x,
+                batch["position"].dists_max,
+                batch["position"].dists_argmax,
+                batch["position"].mask_teams,
+            )
             x_3 = F.normalize(x_3, p=2, dim=-1)
             x.append(x_3)
 
@@ -246,7 +316,8 @@ class SingleFramework(pl.LightningModule):
             x, att_channels = self.aggregation(x, batch_att)
             # Reshape: [n_teams, n_channels].
             self.attentions_channels = att_channels.T.reshape(
-                (att_channels.shape[0] // self.n_channels, self.n_channels)[::-1]).T
+                (att_channels.shape[0] // self.n_channels, self.n_channels)[::-1]
+            ).T
 
             x = x + x_skip
         else:
@@ -303,11 +374,14 @@ class SingleFramework(pl.LightningModule):
         test_acc = self.test_acc(y_hat.softmax(dim=-1)[batch.mask_test], batch.y[batch.mask_test])
         test_f1 = self.test_f1(y_hat.softmax(dim=-1).argmax(-1)[batch.mask_test], batch.y[batch.mask_test])
         test_auroc = self.test_auroc(y_hat.softmax(dim=-1)[batch.mask_test], batch.y[batch.mask_test])
-        self.confusion_matrix = self.test_confmtx(y_hat.softmax(dim=-1).argmax(-1)[batch.mask_test],
-                                                  batch.y[batch.mask_test]).cpu().numpy()
+        self.confusion_matrix = (
+            self.test_confmtx(y_hat.softmax(dim=-1).argmax(-1)[batch.mask_test], batch.y[batch.mask_test]).cpu().numpy()
+        )
 
-        self.test_predictions = (y_hat.softmax(dim=-1)[batch.mask_test].cpu().numpy(),
-                                 batch.y[batch.mask_test].cpu().numpy())
+        self.test_predictions = (
+            y_hat.softmax(dim=-1)[batch.mask_test].cpu().numpy(),
+            batch.y[batch.mask_test].cpu().numpy(),
+        )
 
         self.log("test_acc", test_acc, prog_bar=True, on_step=False, on_epoch=True)
         self.log("test_f1", test_f1, prog_bar=True, on_step=False, on_epoch=True)
@@ -315,8 +389,12 @@ class SingleFramework(pl.LightningModule):
 
         # Tensorboard.
         if self.tensorboard is not None:
-            self.tensorboard.add_embedding(z[batch.mask_test], metadata=batch.y[batch.mask_test].detach().cpu().numpy(),
-                                           global_step=self.current_epoch, tag=f"epoch_{self.current_epoch}")
+            self.tensorboard.add_embedding(
+                z[batch.mask_test],
+                metadata=batch.y[batch.mask_test].detach().cpu().numpy(),
+                global_step=self.current_epoch,
+                tag=f"epoch_{self.current_epoch}",
+            )
 
         return test_acc
 
