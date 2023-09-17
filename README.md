@@ -47,7 +47,7 @@ assess the effectiveness of the models thus developed.
 
 For more details on both types of datasets, we refer you to the respective folder where the analyses related to them have been included.
 
-**NB:** The contextual channel described on paper refers to *position* channel.
+**NB:** The contextual channel described on paper refers to *positional* channel.
 
 ### Synthetic
 
