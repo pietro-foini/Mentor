@@ -24,20 +24,45 @@ warnings.filterwarnings("ignore")
 # Removes warnings in the spawned jobs.
 os.environ["PYTHONWARNINGS"] = "ignore"
 
-scaler_dict = {"MinMaxScaler": MinMaxScaler(), "StandardScaler": StandardScaler(), "QuantileTransformer": QuantileTransformer(), "RobustScaler": RobustScaler()}
+scaler_dict = {
+    "MinMaxScaler": MinMaxScaler(),
+    "StandardScaler": StandardScaler(),
+    "QuantileTransformer": QuantileTransformer(),
+    "RobustScaler": RobustScaler(),
+}
 
 
 def parse_args():
     """Set argparse arguments for handling training phase on a provided dataset."""
     parser_user = argparse.ArgumentParser(description="Train Mentor using different random seed.")
 
-    parser_user.add_argument("--dataset_path", type=str, default="../../datasets/synthetic/position/data", help="The path to the folder dataset containing graph's files.")
+    parser_user.add_argument(
+        "--dataset_path",
+        type=str,
+        default="../../datasets/synthetic/position/data",
+        help="The path to the folder dataset containing graph's files.",
+    )
     parser_user.add_argument("--test_size", type=float, default=0.2, help="The percentage of samples to use for test.")
-    parser_user.add_argument("--early_stop_optuna", type=int, default=80, help="Early stop for Optuna during validation phase.")
+    parser_user.add_argument(
+        "--early_stop_optuna", type=int, default=80, help="Early stop for Optuna during validation phase."
+    )
     parser_user.add_argument("--k", type=int, default=5, help="The number of folds during the validation phase.")
-    parser_user.add_argument("--trials", type=int, default=200, help="The trials of Optuna during the validation phase.")
-    parser_user.add_argument("--seeds", type=int, default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], nargs="+", help="Define which seeds to use for reproducibility.")
-    parser_user.add_argument("--workspace", type=str, default="results/position", help="The name of the folder where the results will be stored.")
+    parser_user.add_argument(
+        "--trials", type=int, default=200, help="The trials of Optuna during the validation phase."
+    )
+    parser_user.add_argument(
+        "--seeds",
+        type=int,
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        nargs="+",
+        help="Define which seeds to use for reproducibility.",
+    )
+    parser_user.add_argument(
+        "--workspace",
+        type=str,
+        default="results/position",
+        help="The name of the folder where the results will be stored.",
+    )
 
     args = parser_user.parse_args()
 
@@ -94,7 +119,9 @@ def hyper_search(trial, data, k, seed):
         # Normalization attributes.
         if data["topology"].norm:
             # Normalization.
-            norm_func = trial.suggest_categorical("norm_func", ["MinMaxScaler", "StandardScaler", "RobustScaler", "QuantileTransformer"])
+            norm_func = trial.suggest_categorical(
+                "norm_func", ["MinMaxScaler", "StandardScaler", "RobustScaler", "QuantileTransformer"]
+            )
             # Fit scaler on training data.
             x_tmp = scaler_dict[norm_func].fit_transform(data["topology"].x)
             data["topology"].x_norm = torch.tensor(x_tmp)
@@ -127,7 +154,14 @@ def hyper_search(trial, data, k, seed):
         )
 
         train_loader = DataLoader([data], batch_size=1, shuffle=False)
-        trainer = Trainer(gpus=1, max_epochs=int(epochs), checkpoint_callback=False, logger=False, weights_summary=None, progress_bar_refresh_rate=0)
+        trainer = Trainer(
+            gpus=1,
+            max_epochs=int(epochs),
+            checkpoint_callback=False,
+            logger=False,
+            weights_summary=None,
+            progress_bar_refresh_rate=0,
+        )
         trainer.fit(model, train_loader)
         out = trainer.validate(model, val_dataloaders=train_loader, verbose=False)
         losses.append(out[0]["val_loss"])
@@ -146,7 +180,9 @@ def main():
         os.mkdir(f"{args.workspace}/best_params")
 
     # Load dataset information.
-    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(args.dataset_path)
+    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
+        args.dataset_path
+    )
 
     # Define the teams and the team labels.
     teams = list(teams_label.keys())
@@ -171,7 +207,9 @@ def main():
         teams_mask_train = np.full(n_teams, False)
         teams_mask_test = np.full(n_teams, False)
 
-        train_teams, test_teams, train_labels, test_labels = train_test_split(teams, y, test_size=args.test_size, stratify=y, random_state=seed)
+        train_teams, test_teams, train_labels, test_labels = train_test_split(
+            teams, y, test_size=args.test_size, stratify=y, random_state=seed
+        )
 
         teams_mask_train[train_teams] = True
         teams_mask_test[test_teams] = True
@@ -187,7 +225,12 @@ def main():
         direction = "minimize"
         study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
         early_stopping = EarlyStoppingCallback(args.early_stop_optuna, direction=direction)
-        study.optimize(lambda x: hyper_search(x, data, args.k, seed), n_trials=args.trials, callbacks=[early_stopping], show_progress_bar=True)
+        study.optimize(
+            lambda x: hyper_search(x, data, args.k, seed),
+            n_trials=args.trials,
+            callbacks=[early_stopping],
+            show_progress_bar=True,
+        )
 
         # Defining best parameter range.
         best_params = study.best_params
