@@ -92,17 +92,28 @@ class EarlyStoppingCallback(object):
 
     def __init__(self, early_stopping_rounds, direction="minimize"):
         self.early_stopping_rounds = early_stopping_rounds
-
         self._iter = 0
+        self._direction = direction
+        self._operator, self._score = self._get_operator_and_score()
 
-        if direction == "minimize":
-            self._operator = operator.lt
-            self._score = np.inf
-        elif direction == "maximize":
-            self._operator = operator.gt
-            self._score = -np.inf
+    @property
+    def direction(self):
+        return self._direction
+
+    @direction.setter
+    def direction(self, new_direction):
+        if new_direction not in {"minimize", "maximize"}:
+            raise ValueError(f"Invalid direction: {new_direction}.")
+        self._direction = new_direction
+        self._operator, self._score = self._get_operator_and_score()
+
+    def _get_operator_and_score(self):
+        if self._direction == "minimize":
+            return operator.lt, np.inf
+        elif self._direction == "maximize":
+            return operator.gt, -np.inf
         else:
-            ValueError(f"Invalid direction: {direction}.")
+            raise ValueError(f"Invalid direction: {self._direction}.")
 
     def __call__(self, study, trial):
         """Do early stop."""

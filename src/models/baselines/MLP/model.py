@@ -1,4 +1,4 @@
-import argparse
+from typing import Optional, Callable
 import random
 import logging
 import warnings
@@ -19,9 +19,6 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from torch_geometric.data import Data, DataLoader
 
-from src.models.utils import load_graph_information, EarlyStoppingCallback
-from src.models.baselines.get_features import HandEngineeredFeatures
-
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
 # Removes warnings in the spawned jobs.
@@ -33,28 +30,6 @@ scaler_dict = {
     "QuantileTransformer": QuantileTransformer(),
     "RobustScaler": RobustScaler()
 }
-
-
-def parse_args():
-    """Set argparse arguments for handling training phase on a provided dataset."""
-    parser_user = argparse.ArgumentParser(description="Train Multi Layer Perceptron (MLP) using different random seed.")
-
-    parser_user.add_argument("--dataset_path", type=str, default="../../../datasets/synthetic/position/data",
-                             help="The path to the folder dataset containing graph's files.")
-    parser_user.add_argument("--test_size", type=float, default=0.2, help="The percentage of samples to use for test.")
-    parser_user.add_argument("--early_stop_optuna", type=int, default=80,
-                             help="Early stop for Optuna during validation phase.")
-    parser_user.add_argument("--k", type=int, default=5, help="The number of folds during the validation phase.")
-    parser_user.add_argument("--trials", type=int, default=200,
-                             help="The trials of Optuna during the validation phase.")
-    parser_user.add_argument("--seeds", type=int, default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], nargs="+",
-                             help="Define which seeds to use for reproducibility.")
-    parser_user.add_argument("--workspace", type=str, default="results/position",
-                             help="The name of the folder where the results will be stored.")
-
-    args = parser_user.parse_args()
-
-    return args
 
 
 class Net(nn.Module):
@@ -191,104 +166,90 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
     return np.mean(losses)
 
 
-def main():
-    """Perform training, validation and test phases over a provided dataset using MLP."""
-    # Get parameters.
-    args = parse_args()
+def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int, trials_optuna: int,
+          callback_optuna: Callable, nodes_attribute: Optional[pd.DataFrame] = None,
+          seed: int = 1) -> tuple[float, float, float]:
+    """
+    Perform training, validation and test phases over a provided dataset using MLP.
 
-    # Create workspace.
-    if not os.path.exists(args.workspace):
-        os.makedirs(args.workspace)
-
-    # Load dataset information.
-    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
-        args.dataset_path)
-
-    # Get the network features at team level.
-    extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)
-    # Get X features and y target points.
-    inputs, outputs = extractor()
+    :param inputs: the hand engineered features extracted by the graph for each team
+    :param outputs: the labels of the teams
+    :param test_size: the percentage size of the test set
+    :param k: the number of k-fold validation
+    :param trials_optuna: the numbers of trials for optuna optimization
+    :param callback_optuna: the early stopping callback for optuna optimization
+    :param nodes_attribute: a dataframe containing the optional node features
+    :param seed: the seed for reproducibility
+    :return: the accuracy, f1 score and auroc on test set
+    """
+    # Fix random seed.
+    random.seed(seed)
+    np.random.seed(seed)
 
     n_classes = outputs["label"].nunique()
 
-    metrics = {}
-    for seed in args.seeds:
-        logging.info(f"Experiment seed {seed}:")
+    # Split teams for training and for test.
+    x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=test_size,
+                                                        stratify=outputs, random_state=seed)
 
-        # Fix random seed.
+    # Optimization.
+    logging.info("Hyper-parameter tuning")
+
+    logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    direction = "minimize"
+    callback_optuna.direction = direction
+    study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
+    study.optimize(lambda x: hyper_search(x, x_train, y_train, k, nodes_attribute, n_classes, seed),
+                   n_trials=trials_optuna, callbacks=[callback_optuna], show_progress_bar=True)
+
+    # Defining parameter range.
+    best_params = study.best_params
+
+    logging.info("Test phase")
+
+    if nodes_attribute is not None:
+        teams_attribute = nodes_attribute.groupby(axis=0, level="team").agg(best_params["agg"])
+        x_train = pd.merge(x_train, teams_attribute, left_index=True, right_index=True, how="left")
+        x_test = pd.merge(x_test, teams_attribute, left_index=True, right_index=True, how="left")
+        del best_params["agg"]
+
+    # Fit scaler on training data.
+    norm = scaler_dict[best_params["norm_func"]].fit(x_train)
+    # Transform training data.
+    x_train = norm.transform(x_train)
+    # Transform testing data.
+    x_test = norm.transform(x_test)
+
+    del best_params["norm_func"]
+
+    # Create DataLoaders.
+    train_loader = create_dataloader(x_train, y_train.values, batch_size=64)
+    test_loader = create_dataloader(x_test, y_test.values, batch_size=x_test.shape[0])
+
+    # Holdout test.
+    test_acc, test_f1, test_auroc = [], [], []
+    for i in range(10):
+        # Fix seed for reproducibility.
+        torch.manual_seed(seed)
         random.seed(seed)
         np.random.seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
-        # Split teams for training and for test.
-        x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=args.test_size,
-                                                            stratify=outputs, random_state=seed)
+        model = LightningNet(x_train.shape[1], n_classes, **best_params)
 
-        # Optimization.
-        logging.info("Hyper-parameter tuning")
+        trainer = Trainer(gpus=1, max_epochs=int(best_params["epochs"]), checkpoint_callback=False,
+                          logger=False, weights_summary=None, progress_bar_refresh_rate=0)
+        trainer.fit(model, train_loader)
+        result = trainer.test(model, test_dataloaders=test_loader, verbose=False)
+        test_acc.append(result[0]["test_acc"])
+        test_f1.append(result[0]["test_f1"])
+        test_auroc.append(result[0]["test_auroc"])
 
-        logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
-        direction = "minimize"
-        study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
-        early_stopping = EarlyStoppingCallback(args.early_stop_optuna, direction=direction)
-        study.optimize(lambda x: hyper_search(x, x_train, y_train, args.k, nodes_attribute, n_classes, seed),
-                       n_trials=args.trials, callbacks=[early_stopping], show_progress_bar=True)
+    # Test.
+    accuracy_test = np.mean(test_acc)
+    f1_test = np.mean(test_f1)
+    auroc_test = np.mean(test_auroc)
 
-        # Defining parameter range.
-        best_params = study.best_params
-
-        logging.info("Test phase")
-
-        if nodes_attribute is not None:
-            teams_attribute = nodes_attribute.groupby(axis=0, level="team").agg(best_params["agg"])
-            x_train = pd.merge(x_train, teams_attribute, left_index=True, right_index=True, how="left")
-            x_test = pd.merge(x_test, teams_attribute, left_index=True, right_index=True, how="left")
-            del best_params["agg"]
-
-        # Fit scaler on training data.
-        norm = scaler_dict[best_params["norm_func"]].fit(x_train)
-        # Transform training data.
-        x_train = norm.transform(x_train)
-        # Transform testing data.
-        x_test = norm.transform(x_test)
-
-        del best_params["norm_func"]
-
-        # Create DataLoaders.
-        train_loader = create_dataloader(x_train, y_train.values, batch_size=64)
-        test_loader = create_dataloader(x_test, y_test.values, batch_size=x_test.shape[0])
-
-        # Holdout test.
-        test_acc, test_f1, test_auroc = [], [], []
-        for i in range(10):
-            # Fix seed for reproducibility.
-            torch.manual_seed(seed)
-            random.seed(seed)
-            np.random.seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-
-            model = LightningNet(x_train.shape[1], n_classes, **best_params)
-
-            trainer = Trainer(gpus=1, max_epochs=int(best_params["epochs"]), checkpoint_callback=False,
-                              logger=False, weights_summary=None, progress_bar_refresh_rate=0)
-            trainer.fit(model, train_loader)
-            result = trainer.test(model, test_dataloaders=test_loader, verbose=False)
-            test_acc.append(result[0]["test_acc"])
-            test_f1.append(result[0]["test_f1"])
-            test_auroc.append(result[0]["test_auroc"])
-
-        metrics[seed] = {"Accuracy": np.mean(test_acc), "F1": np.mean(test_f1), "AUROC": np.mean(test_auroc)}
-
-    # Aggregate results.
-    results = pd.DataFrame(metrics).T
-
-    # Save results.
-    with pd.ExcelWriter(f"{args.workspace}/metrics.xlsx") as writer:
-        results.to_excel(writer, sheet_name=f"Seeds")
-        results.agg(["mean", "std"]).to_excel(writer, sheet_name=f"Overall")
-
-
-if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
-    main()
+    return accuracy_test, f1_test, auroc_test
