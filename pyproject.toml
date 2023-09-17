@@ -40,11 +40,11 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 180
+line-length = 120
 exclude = '''
 /(\n  \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox\n  | \\.venv\n  | _build\n  | buck-out\n  | build\n  | dist\n  | dockerfile\n  | \.md\n  | \.txt\n  | \.gitignore\n  | \.lock\n)/\n
 '''
 [tool.isort]
 # make it compatible with black
 profile = "black"
-line_length = 180
+line_length = 120
