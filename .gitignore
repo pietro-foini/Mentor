@@ -55,7 +55,7 @@ venv/
 
 # Data folder
 download/
-results/
+raw_data/
 
 **/checkpoints
 
