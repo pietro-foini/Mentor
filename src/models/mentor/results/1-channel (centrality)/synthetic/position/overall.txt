@@ -1,0 +1,3 @@
+       test_acc    test_f1  test_auroc
+mean  32.999999  33.000000        50.0
+std    1.054093   1.054093         0.0
