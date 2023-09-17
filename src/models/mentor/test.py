@@ -1,25 +1,24 @@
+import argparse
 import logging
+import os
 import pickle
 import random
-import argparse
-import os
 import shutil
 import warnings
 
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, QuantileTransformer
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 import matplotlib
-import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import torch
-from torch.utils import tensorboard
-from pytorch_lightning import Trainer
-from torch_geometric.data import DataLoader
-
-from model.model import SingleFramework
 from model.hetero_data import DataObject
+from model.model import SingleFramework
+from pytorch_lightning import Trainer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler, StandardScaler
+from torch.utils import tensorboard
+from torch_geometric.data import DataLoader
 from utils import load_graph_information
 
 torch.set_default_dtype(torch.float64)
@@ -35,7 +34,7 @@ scaler_dict = {
     "MinMaxScaler": MinMaxScaler(),
     "StandardScaler": StandardScaler(),
     "QuantileTransformer": QuantileTransformer(),
-    "RobustScaler": RobustScaler()
+    "RobustScaler": RobustScaler(),
 }
 
 
@@ -43,13 +42,30 @@ def parse_args():
     """Set argparse arguments for handling test phase."""
     parser_user = argparse.ArgumentParser(description="Train Mentor using different random seed.")
 
-    parser_user.add_argument("--dataset_path", type=str, default="../../datasets/synthetic/position/data",
-                             help="The path to the folder dataset containing graph's files.")
-    parser_user.add_argument("--hyperparameter_path", type=str, default="./results/position/best_params",
-                             help="The path to the folder containing best parameters for the provided seed.")
-    parser_user.add_argument("--seed", type=int, default=1, help="Define which seeds to use for reproducibility.")
-    parser_user.add_argument("--workspace", type=str, default="results/position",
-                             help="The name of the folder where the results will be stored.")
+    parser_user.add_argument(
+        "--dataset_path",
+        type=str,
+        default="../../datasets/synthetic/position/data",
+        help="The path to the folder dataset containing graph's files.",
+    )
+    parser_user.add_argument(
+        "--hyperparameter_path",
+        type=str,
+        default="./results/position/best_params",
+        help="The path to the folder containing best parameters for the provided seed.",
+    )
+    parser_user.add_argument(
+        "--seed",
+        type=int,
+        default=1,
+        help="Define which seeds to use for reproducibility.",
+    )
+    parser_user.add_argument(
+        "--workspace",
+        type=str,
+        default="results/position",
+        help="The name of the folder where the results will be stored.",
+    )
 
     args = parser_user.parse_args()
 
@@ -102,8 +118,15 @@ def main():
         best_params = pickle.load(f)
 
         # Load dataset information.
-    graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
-        args.dataset_path)
+    (
+        graph,
+        teams_composition,
+        teams_label,
+        nodes_attribute,
+        teams_members,
+        _,
+        _,
+    ) = load_graph_information(args.dataset_path)
 
     # Define the teams and the team labels.
     teams = list(teams_label.keys())
@@ -117,8 +140,14 @@ def main():
     np.random.seed(0)
 
     # Initialization of the HeteroData torch object.
-    HeteroData = DataObject(graph, teams_composition, teams_members, teams_label, nodes_not_belong_to_teams,
-                            nodes_attribute)
+    HeteroData = DataObject(
+        graph,
+        teams_composition,
+        teams_members,
+        teams_label,
+        nodes_not_belong_to_teams,
+        nodes_attribute,
+    )
     # Perform preprocessing of the 3-channels.
     data = HeteroData(topology=True, centrality=True, position=True)
 
@@ -126,8 +155,7 @@ def main():
     teams_mask_train = np.full(n_teams, False)
     teams_mask_test = np.full(n_teams, False)
 
-    train_teams, test_teams, train_labels, test_labels = train_test_split(teams, y, test_size=0.2, stratify=y,
-                                                                          random_state=args.seed)
+    train_teams, test_teams, train_labels, test_labels = train_test_split(teams, y, test_size=0.2, stratify=y, random_state=args.seed)
 
     teams_mask_train[train_teams] = True
     teams_mask_test[test_teams] = True
@@ -164,13 +192,24 @@ def main():
         data["topology"].x_norm = torch.tensor(x_tmp)
 
     # Training and test.
-    model = SingleFramework(input_dim_t=data["topology"].x.shape[1], input_dim_c=data["centrality"].x.shape[1],
-                            input_dim_p=data["position"].x.shape[1], n_anchorsets=data["position"].n_anchorsets,
-                            out_dim=data.n_classes, tensorboard=writer, **best_params)
+    model = SingleFramework(
+        input_dim_t=data["topology"].x.shape[1],
+        input_dim_c=data["centrality"].x.shape[1],
+        input_dim_p=data["position"].x.shape[1],
+        n_anchorsets=data["position"].n_anchorsets,
+        out_dim=data.n_classes,
+        tensorboard=writer,
+        **best_params,
+    )
 
     train_loader = DataLoader([data], batch_size=1, shuffle=False)
-    trainer = Trainer(gpus=1, max_epochs=int(best_params["epochs"]), checkpoint_callback=False, logger=False,
-                      weights_summary=None)
+    trainer = Trainer(
+        gpus=1,
+        max_epochs=int(best_params["epochs"]),
+        checkpoint_callback=False,
+        logger=False,
+        weights_summary=None,
+    )
     trainer.fit(model, train_loader)
     result = trainer.test(model, test_dataloaders=train_loader)[0]
     test_accuracy = round(result["test_acc"] * 100, 2)
@@ -198,25 +237,50 @@ def main():
 
     # Get attention coefficients at team level for each channel (heatmaps).
     fig, axs = plt.subplots(figsize=(3, 5), ncols=1, nrows=1)
-    sns.heatmap(df_att_channels[model.channels], vmin=0, vmax=1, cmap="seismic",
-                cbar_kws={"label": "Attention coefficients, $\gamma^{(i)}$"}, ax=axs)
+    sns.heatmap(
+        df_att_channels[model.channels],
+        vmin=0,
+        vmax=1,
+        cmap="seismic",
+        cbar_kws={"label": "Attention coefficients, $\gamma^{(i)}$"},
+        ax=axs,
+    )
     axs.set_ylabel("TeamID")
     axs.set_xlabel("Channels")
 
-    fig.savefig(f"{args.workspace}/channels_attention_coefficients/heatmaps/{args.seed}_acc_{test_accuracy}.png",
-                bbox_inches="tight", dpi=300)
+    fig.savefig(
+        f"{args.workspace}/channels_attention_coefficients/heatmaps/{args.seed}_acc_{test_accuracy}.png",
+        bbox_inches="tight",
+        dpi=300,
+    )
 
     # Get attention coefficients for each channel in relation to the label (barplot).
     fig, axs = plt.subplots(figsize=(5, 3), ncols=1, nrows=1)
 
-    m = pd.melt(df_att_channels, id_vars=["label"], value_vars=["topology", "centrality", "position"],
-                var_name="channels", value_name="Attention coefficients")
-    sns.barplot(x="label", hue="channels", y="Attention coefficients", data=m, capsize=.02,
-                estimator=np.mean, errwidth=1.6, ci=95)
+    m = pd.melt(
+        df_att_channels,
+        id_vars=["label"],
+        value_vars=["topology", "centrality", "position"],
+        var_name="channels",
+        value_name="Attention coefficients",
+    )
+    sns.barplot(
+        x="label",
+        hue="channels",
+        y="Attention coefficients",
+        data=m,
+        capsize=0.02,
+        estimator=np.mean,
+        errwidth=1.6,
+        ci=95,
+    )
     axs.legend(loc="best", bbox_to_anchor=(1, 0.7))
 
-    fig.savefig(f"{args.workspace}/channels_attention_coefficients/barplots/{args.seed}.png",
-                bbox_inches="tight", dpi=300)
+    fig.savefig(
+        f"{args.workspace}/channels_attention_coefficients/barplots/{args.seed}.png",
+        bbox_inches="tight",
+        dpi=300,
+    )
 
     # Load confusion matrix on test set.
     cf_matrix = model.confusion_matrix
@@ -225,13 +289,22 @@ def main():
         pickle.dump(cf_matrix, fp)
 
     fig, axs = plt.subplots(figsize=(4, 3), ncols=1, nrows=1)
-    sns.heatmap(cf_matrix / cf_matrix.astype(np.float32).sum(axis=1), annot=True, fmt=".2%", cmap="Blues", ax=axs)
+    sns.heatmap(
+        cf_matrix / cf_matrix.astype(np.float32).sum(axis=1),
+        annot=True,
+        fmt=".2%",
+        cmap="Blues",
+        ax=axs,
+    )
     axs.set_title("Confusion matrix (test)")
     axs.set_ylabel("True label")
     axs.set_xlabel("Predicted label")
 
-    fig.savefig(f"{args.workspace}/confusion_matrices_test/heatmaps/{args.seed}.png", bbox_inches="tight",
-                dpi=300)
+    fig.savefig(
+        f"{args.workspace}/confusion_matrices_test/heatmaps/{args.seed}.png",
+        bbox_inches="tight",
+        dpi=300,
+    )
 
     # Get edges topology with GAT attentions.
     edges = model.attentions_topology[0].detach().cpu().numpy()
@@ -270,6 +343,6 @@ def main():
     df_att_topology_nodes.to_csv(f"{args.workspace}/topology_attention_coefficients/{args.seed}.csv")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     main()
