@@ -1,16 +1,16 @@
-from typing import Optional, Callable
-import random
 import logging
-import warnings
 import os
+import random
+import warnings
+from typing import Callable, Optional
 
-import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 import optuna
+import pandas as pd
 from optuna.samplers import TPESampler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
@@ -28,16 +28,18 @@ def hyper_search(trial, x, y, cv, nodes_attribute, seed):
     max_features = trial.suggest_uniform("max_features", 0.6, 1)
     max_samples = trial.suggest_uniform("max_samples", 0.6, 1)
 
-    classifier = RandomForestClassifier(n_estimators=100,
-                                        class_weight="balanced",
-                                        criterion=criterion,
-                                        max_depth=max_depth,
-                                        max_samples=max_samples,
-                                        min_samples_split=min_samples_split,
-                                        min_samples_leaf=min_samples_leaf,
-                                        max_features=max_features,
-                                        random_state=seed,
-                                        n_jobs=-1)
+    classifier = RandomForestClassifier(
+        n_estimators=100,
+        class_weight="balanced",
+        criterion=criterion,
+        max_depth=max_depth,
+        max_samples=max_samples,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
+        max_features=max_features,
+        random_state=seed,
+        n_jobs=-1,
+    )
 
     # Aggregate nodes attributes based on corresponding team.
     if nodes_attribute is not None:
@@ -52,9 +54,16 @@ def hyper_search(trial, x, y, cv, nodes_attribute, seed):
     return np.mean(scores)
 
 
-def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int, trials_optuna: int,
-          callback_optuna: Callable, nodes_attribute: Optional[pd.DataFrame] = None,
-          seed: int = 1) -> tuple[float, float, float]:
+def train(
+    inputs: pd.DataFrame,
+    outputs: pd.DataFrame,
+    test_size: float,
+    k: int,
+    trials_optuna: int,
+    callback_optuna: Callable,
+    nodes_attribute: Optional[pd.DataFrame] = None,
+    seed: int = 1,
+) -> tuple[float, float, float]:
     """
     Perform training, validation and test phases over a provided dataset using RF.
 
@@ -73,8 +82,9 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     np.random.seed(seed)
 
     # Split teams for training and for test.
-    x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=test_size,
-                                                        stratify=outputs, random_state=seed)
+    x_train, x_test, y_train, y_test = train_test_split(
+        inputs, outputs, test_size=test_size, stratify=outputs, random_state=seed
+    )
 
     # Ravel label for models.
     y_train, y_test = y_train.values.ravel(), y_test.values.ravel()
@@ -87,8 +97,12 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     direction = "maximize"
     callback_optuna.direction = direction
     study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
-    study.optimize(lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute, seed),
-                   callbacks=[callback_optuna], n_trials=trials_optuna, show_progress_bar=True)
+    study.optimize(
+        lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute, seed),
+        callbacks=[callback_optuna],
+        n_trials=trials_optuna,
+        show_progress_bar=True,
+    )
 
     # Defining parameter range.
     best_params = study.best_params

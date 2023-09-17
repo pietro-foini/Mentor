@@ -1,24 +1,26 @@
-from typing import Union
 import warnings
+from typing import Union
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
 from tqdm import tqdm
 
 warnings.filterwarnings("ignore")
 
 
 class HandEngineeredFeatures(object):
-    def __init__(self, graph: Union[nx.Graph, nx.DiGraph], teams_composition: dict, teams_label: dict):
-        """
-        Compute features at team level: unique and total followers/followings, number of internal connections,
-        assortativity, global clustering coefficient, density.
+    """
+    Compute features at team level: unique and total followers/followings, number of internal connections,
+    assortativity, global clustering coefficient, density.
 
-        :param graph: undirected/directed graph representing the ecosystem to work on it
-        :param teams_composition: dictionary mapping from node id to corresponding team ids: {node_id: [...], ...}
-        :param teams_label: dictionary containing the class C of each team: {team_id: C, ...}
-        """
+    :param graph: undirected/directed graph representing the ecosystem to work on it
+    :param teams_composition: dictionary mapping from node id to corresponding team ids: {node_id: [...], ...}
+    :param teams_label: dictionary containing the class C of each team: {team_id: C, ...}
+    """
+
+    def __init__(self, graph: Union[nx.Graph, nx.DiGraph], teams_composition: dict, teams_label: dict):
+        """Initialization class."""
         self.graph = graph
         self.teams_composition = teams_composition
         self.teams_label = teams_label
@@ -78,7 +80,8 @@ class HandEngineeredFeatures(object):
         subgraph = nx.DiGraph() if self.graph.is_directed() else nx.Graph()
         subgraph.add_nodes_from(system_team["node"].unique())
         subgraph.add_edges_from(
-            system_team[["node", "inside_connections"]].explode("inside_connections").dropna().values[:, [1, 0]])
+            system_team[["node", "inside_connections"]].explode("inside_connections").dropna().values[:, [1, 0]]
+        )
 
         # Assortativity.
         r = nx.degree_assortativity_coefficient(subgraph)
@@ -87,11 +90,28 @@ class HandEngineeredFeatures(object):
         # Density.
         density = nx.density(subgraph)
 
-        return pd.Series([total_inside_connections, unique_outside_followers, total_outside_followers,
-                          unique_outside_followings, total_outside_followings, r, cluster, density],
-                         index=["total_inside_connections", "unique_outside_followers", "total_outside_followers",
-                                "unique_outside_followings", "total_outside_followings", "assortativity",
-                                "average_clustering", "density"])
+        return pd.Series(
+            [
+                total_inside_connections,
+                unique_outside_followers,
+                total_outside_followers,
+                unique_outside_followings,
+                total_outside_followings,
+                r,
+                cluster,
+                density,
+            ],
+            index=[
+                "total_inside_connections",
+                "unique_outside_followers",
+                "total_outside_followers",
+                "unique_outside_followings",
+                "total_outside_followings",
+                "assortativity",
+                "average_clustering",
+                "density",
+            ],
+        )
 
     def __call__(self):
         """Compute inputs (X) and output (y) features at team level."""

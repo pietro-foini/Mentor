@@ -1,18 +1,18 @@
-from typing import Optional, Callable
-import random
 import logging
-import warnings
 import os
+import random
+import warnings
+from typing import Callable, Optional
 
-import pandas as pd
 import numpy as np
-from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, confusion_matrix
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, QuantileTransformer
-from sklearn.pipeline import Pipeline
 import optuna
+import pandas as pd
 from optuna.samplers import TPESampler
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler, StandardScaler
+from sklearn.svm import SVC
 
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
@@ -23,7 +23,7 @@ scaler_dict = {
     "MinMaxScaler": MinMaxScaler(),
     "StandardScaler": StandardScaler(),
     "QuantileTransformer": QuantileTransformer(),
-    "RobustScaler": RobustScaler()
+    "RobustScaler": RobustScaler(),
 }
 
 
@@ -32,11 +32,11 @@ def hyper_search(trial, x, y, cv, nodes_attribute):
     # Search configuration.
     c = trial.suggest_categorical("C", [0.1, 1, 10, 100, 1000])
     gamma = trial.suggest_categorical("gamma", [1, 0.1, 0.01, 0.001, 0.0001])
-    norm_func = trial.suggest_categorical("norm_func", ["MinMaxScaler", "StandardScaler",
-                                                        "QuantileTransformer", "RobustScaler"])
+    norm_func = trial.suggest_categorical(
+        "norm_func", ["MinMaxScaler", "StandardScaler", "QuantileTransformer", "RobustScaler"]
+    )
 
-    classifier = SVC(decision_function_shape="ovr", class_weight="balanced", gamma=gamma,
-                     C=c, kernel="rbf")
+    classifier = SVC(decision_function_shape="ovr", class_weight="balanced", gamma=gamma, C=c, kernel="rbf")
 
     # Aggregate nodes attributes based on corresponding team.
     if nodes_attribute is not None:
@@ -52,9 +52,16 @@ def hyper_search(trial, x, y, cv, nodes_attribute):
     return np.mean(scores)
 
 
-def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int, trials_optuna: int,
-          callback_optuna: Callable, nodes_attribute: Optional[pd.DataFrame] = None,
-          seed: int = 1) -> tuple[float, float, float]:
+def train(
+    inputs: pd.DataFrame,
+    outputs: pd.DataFrame,
+    test_size: float,
+    k: int,
+    trials_optuna: int,
+    callback_optuna: Callable,
+    nodes_attribute: Optional[pd.DataFrame] = None,
+    seed: int = 1,
+) -> tuple[float, float, float]:
     """
     Perform training, validation and test phases over a provided dataset using SVM.
 
@@ -73,8 +80,9 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     np.random.seed(seed)
 
     # Split teams for training and for test.
-    x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=test_size,
-                                                        stratify=outputs, random_state=seed)
+    x_train, x_test, y_train, y_test = train_test_split(
+        inputs, outputs, test_size=test_size, stratify=outputs, random_state=seed
+    )
 
     # Ravel label for models.
     y_train, y_test = y_train.values.ravel(), y_test.values.ravel()
@@ -87,8 +95,12 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     direction = "maximize"
     callback_optuna.direction = direction
     study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
-    study.optimize(lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute),
-                   callbacks=[callback_optuna], n_trials=trials_optuna, show_progress_bar=True)
+    study.optimize(
+        lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute),
+        callbacks=[callback_optuna],
+        n_trials=trials_optuna,
+        show_progress_bar=True,
+    )
 
     # Defining parameter range.
     best_params = study.best_params
@@ -110,8 +122,7 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
 
     del best_params["norm_func"]
 
-    model = SVC(decision_function_shape="ovr", class_weight="balanced", kernel="rbf", probability=True,
-                **best_params)
+    model = SVC(decision_function_shape="ovr", class_weight="balanced", kernel="rbf", probability=True, **best_params)
     model.fit(x_train, y_train)
 
     # Test.

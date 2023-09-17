@@ -1,23 +1,23 @@
-from typing import Optional, Callable
-import random
 import logging
-import warnings
 import os
+import random
+import warnings
+from typing import Callable, Optional
 
-import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, QuantileTransformer
 import optuna
-from optuna.samplers import TPESampler
+import pandas as pd
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Sequential, Linear, BatchNorm1d, ReLU, Dropout
-from torchmetrics import Accuracy, F1Score, AUROC
-import pytorch_lightning as pl
+from optuna.samplers import TPESampler
 from pytorch_lightning import Trainer
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler, StandardScaler
+from torch.nn import BatchNorm1d, Dropout, Linear, ReLU, Sequential
 from torch_geometric.data import Data, DataLoader
+from torchmetrics import AUROC, Accuracy, F1Score
 
 # Removes warnings in the current job.
 warnings.filterwarnings("ignore")
@@ -28,11 +28,13 @@ scaler_dict = {
     "MinMaxScaler": MinMaxScaler(),
     "StandardScaler": StandardScaler(),
     "QuantileTransformer": QuantileTransformer(),
-    "RobustScaler": RobustScaler()
+    "RobustScaler": RobustScaler(),
 }
 
 
 class Net(nn.Module):
+    """Class for MLP layers."""
+
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers, dropout):
         super().__init__()
 
@@ -57,6 +59,8 @@ class Net(nn.Module):
 
 
 class LightningNet(pl.LightningModule):
+    """Class for MLP network."""
+
     def __init__(self, input_dim, output_dim, hidden_dim=32, num_layers=2, dropout=0.5, lr=0.01, **kwargs):
         super().__init__()
 
@@ -104,8 +108,11 @@ class LightningNet(pl.LightningModule):
 
 
 def create_dataloader(x, y, batch_size=64, shuffle=True):
-    return DataLoader([Data(x=torch.FloatTensor(xx).view(1,-1), y=torch.tensor(yy)) for xx,yy in zip(x,y)],
-                      batch_size=batch_size, shuffle=shuffle)
+    return DataLoader(
+        [Data(x=torch.FloatTensor(xx).view(1, -1), y=torch.tensor(yy)) for xx, yy in zip(x, y)],
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
 
 
 def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
@@ -123,8 +130,9 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
     hidden_dim = trial.suggest_categorical("hidden_dim", [16, 32, 64, 128])
     num_layers = trial.suggest_int("num_layers", 1, 3)
     lr = trial.suggest_loguniform("lr", 1e-5, 1e-1)
-    norm_func = trial.suggest_categorical("norm_func", ["MinMaxScaler", "StandardScaler",
-                                                        "QuantileTransformer", "RobustScaler"])
+    norm_func = trial.suggest_categorical(
+        "norm_func", ["MinMaxScaler", "StandardScaler", "QuantileTransformer", "RobustScaler"]
+    )
 
     # Aggregate nodes attributes based on corresponding team.
     if nodes_attribute is not None:
@@ -155,10 +163,17 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
         val_loader = create_dataloader(x_val, y_val, batch_size=x_val.shape[0])
 
         # Training and validation.
-        model = LightningNet(x_train.shape[1], n_classes, hidden_dim=hidden_dim, num_layers=num_layers,
-                             dropout=dropout, lr=lr)
-        trainer = Trainer(gpus=1, max_epochs=epochs, checkpoint_callback=False,
-                          logger=False, weights_summary=None, progress_bar_refresh_rate=0)
+        model = LightningNet(
+            x_train.shape[1], n_classes, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, lr=lr
+        )
+        trainer = Trainer(
+            gpus=1,
+            max_epochs=epochs,
+            checkpoint_callback=False,
+            logger=False,
+            weights_summary=None,
+            progress_bar_refresh_rate=0,
+        )
         trainer.fit(model, train_loader)
         out = trainer.validate(model, val_dataloaders=val_loader, verbose=False)
         losses.append(out[0]["val_loss"])
@@ -166,9 +181,16 @@ def hyper_search(trial, x, y, k, nodes_attribute, n_classes, seed):
     return np.mean(losses)
 
 
-def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int, trials_optuna: int,
-          callback_optuna: Callable, nodes_attribute: Optional[pd.DataFrame] = None,
-          seed: int = 1) -> tuple[float, float, float]:
+def train(
+    inputs: pd.DataFrame,
+    outputs: pd.DataFrame,
+    test_size: float,
+    k: int,
+    trials_optuna: int,
+    callback_optuna: Callable,
+    nodes_attribute: Optional[pd.DataFrame] = None,
+    seed: int = 1,
+) -> tuple[float, float, float]:
     """
     Perform training, validation and test phases over a provided dataset using MLP.
 
@@ -189,8 +211,9 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     n_classes = outputs["label"].nunique()
 
     # Split teams for training and for test.
-    x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=test_size,
-                                                        stratify=outputs, random_state=seed)
+    x_train, x_test, y_train, y_test = train_test_split(
+        inputs, outputs, test_size=test_size, stratify=outputs, random_state=seed
+    )
 
     # Optimization.
     logging.info("Hyper-parameter tuning")
@@ -200,8 +223,12 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     direction = "minimize"
     callback_optuna.direction = direction
     study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
-    study.optimize(lambda x: hyper_search(x, x_train, y_train, k, nodes_attribute, n_classes, seed),
-                   n_trials=trials_optuna, callbacks=[callback_optuna], show_progress_bar=True)
+    study.optimize(
+        lambda x: hyper_search(x, x_train, y_train, k, nodes_attribute, n_classes, seed),
+        n_trials=trials_optuna,
+        callbacks=[callback_optuna],
+        show_progress_bar=True,
+    )
 
     # Defining parameter range.
     best_params = study.best_params
@@ -239,8 +266,14 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
 
         model = LightningNet(x_train.shape[1], n_classes, **best_params)
 
-        trainer = Trainer(gpus=1, max_epochs=int(best_params["epochs"]), checkpoint_callback=False,
-                          logger=False, weights_summary=None, progress_bar_refresh_rate=0)
+        trainer = Trainer(
+            gpus=1,
+            max_epochs=int(best_params["epochs"]),
+            checkpoint_callback=False,
+            logger=False,
+            weights_summary=None,
+            progress_bar_refresh_rate=0,
+        )
         trainer.fit(model, train_loader)
         result = trainer.test(model, test_dataloaders=test_loader, verbose=False)
         test_acc.append(result[0]["test_acc"])

@@ -1,5 +1,5 @@
-from itertools import permutations
 import collections
+from itertools import permutations
 
 import networkx as nx
 import numpy as np
@@ -30,8 +30,9 @@ def directed_er_generator(n: int, m: int = 1, seed: int = 0) -> nx.DiGraph:
     return graph
 
 
-def team_maker(graph: nx.DiGraph, min_team_size: int = 5, poisson_mean: int = 5, m: int = 1,
-               seed: int = 0) -> tuple[nx.DiGraph, dict]:
+def team_maker(
+    graph: nx.DiGraph, min_team_size: int = 5, poisson_mean: int = 5, m: int = 1, seed: int = 0
+) -> tuple[nx.DiGraph, dict]:
     """
     This function assigns each node to a corresponding team (non-overlapping). No connectivity structure is
     added by this function. Some new nodes can be added to the provided graph if internal algorithm need them.
@@ -118,8 +119,13 @@ def clique_adder(graph: nx.DiGraph, teams_composition: dict, seed: int = 0) -> n
     return graph
 
 
-def motif_adder(graph: nx.DiGraph, teams_composition: dict, motif_team_size_ratio: float = 0.8,
-                motifs: tuple = (0, 1, 2), seed: int = 0) -> tuple[nx.DiGraph, dict]:
+def motif_adder(
+    graph: nx.DiGraph,
+    teams_composition: dict,
+    motif_team_size_ratio: float = 0.8,
+    motifs: tuple = (0, 1, 2),
+    seed: int = 0,
+) -> tuple[nx.DiGraph, dict]:
     """
     Add motif structures to the various teams into the graph. There exist 3 types of motif that can be selected.
 
@@ -173,8 +179,17 @@ def motif_adder(graph: nx.DiGraph, teams_composition: dict, motif_team_size_rati
     return graph, teams_label
 
 
-def degree_maker(graph: nx.DiGraph, teams_composition: dict, n_classes: int, separation: int, use_powerlaw: bool = True,
-                 method: str = "khot", degree: str = "in", seed: int = 0, **kwargs) -> tuple[nx.DiGraph, dict, list]:
+def degree_maker(
+    graph: nx.DiGraph,
+    teams_composition: dict,
+    n_classes: int,
+    separation: int,
+    use_powerlaw: bool = True,
+    method: str = "khot",
+    degree: str = "in",
+    seed: int = 0,
+    **kwargs
+) -> tuple[nx.DiGraph, dict, list]:
     """
     Assign to each team a particular in-degree/out-degree distribution from outside the team. This is possible adding
     new edges into the network.
@@ -220,7 +235,8 @@ def degree_maker(graph: nx.DiGraph, teams_composition: dict, n_classes: int, sep
             # Get the number of new edge to add based on the corresponding distribution.
             if (split == max_class) & use_powerlaw:
                 n_links = int(
-                    powerlaw.Power_Law(xmin=centers[split], parameters=[3], discrete=True).generate_random()[0])
+                    powerlaw.Power_Law(xmin=centers[split], parameters=[3], discrete=True).generate_random()[0]
+                )
             else:
                 n_links = max(2, int(distribution[split](loc=centers[split])))
 
@@ -290,7 +306,7 @@ def uniform(n_terms, bl=10):
 def triangular(n_terms, pw=1):
     r = np.arange(n_terms)
     kernel1d = (n_terms + 1 - np.abs(r - r[::-1])) / 2
-    return (kernel1d ** pw).astype(int)
+    return (kernel1d**pw).astype(int)
 
 
 def khot(n_terms, k=3, bl=10):

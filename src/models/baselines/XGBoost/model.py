@@ -1,15 +1,15 @@
-from typing import Optional, Callable
-import random
 import logging
-import warnings
 import os
+import random
+import warnings
+from typing import Callable, Optional
 
-import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 import optuna
+import pandas as pd
 from optuna.samplers import TPESampler
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from xgboost import XGBClassifier
 
 # Removes warnings in the current job.
@@ -21,29 +21,31 @@ os.environ["PYTHONWARNINGS"] = "ignore"
 def hyper_search(trial, x, y, cv, nodes_attribute, n_classes):
     """Objective function for Optuna optimization."""
     # Search configuration.
-    gamma = trial.suggest_uniform("gamma", 0.0, 1.)
-    reg_alpha = trial.suggest_uniform("reg_alpha", 0.0, 1.)
-    reg_lambda = trial.suggest_uniform("reg_lambda", 0.0, 1.)
+    gamma = trial.suggest_uniform("gamma", 0.0, 1.0)
+    reg_alpha = trial.suggest_uniform("reg_alpha", 0.0, 1.0)
+    reg_lambda = trial.suggest_uniform("reg_lambda", 0.0, 1.0)
     max_depth = trial.suggest_int("max_depth", 3, 10)
-    min_child_weight = trial.suggest_uniform("min_child_weight", 1., 10.)
+    min_child_weight = trial.suggest_uniform("min_child_weight", 1.0, 10.0)
     learning_rate = trial.suggest_uniform("learning_rate", 0.001, 0.3)
     subsample = trial.suggest_uniform("subsample", 0.6, 1.0)
     colsample_bytree = trial.suggest_uniform("colsample_bytree", 0.6, 1.0)
 
     objective = "multi:softmax" if n_classes > 2 else "binary:logistic"
 
-    classifier = XGBClassifier(n_estimators=100,
-                               objective=objective,
-                               eval_metric="mlogloss",
-                               gamma=gamma,
-                               reg_alpha=reg_alpha,
-                               reg_lambda=reg_lambda,
-                               max_depth=max_depth,
-                               min_child_weight=min_child_weight,
-                               learning_rate=learning_rate,
-                               subsample=subsample,
-                               colsample_bytree=colsample_bytree,
-                               n_jobs=-1)
+    classifier = XGBClassifier(
+        n_estimators=100,
+        objective=objective,
+        eval_metric="mlogloss",
+        gamma=gamma,
+        reg_alpha=reg_alpha,
+        reg_lambda=reg_lambda,
+        max_depth=max_depth,
+        min_child_weight=min_child_weight,
+        learning_rate=learning_rate,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        n_jobs=-1,
+    )
 
     # Aggregate nodes attributes based on corresponding team.
     if nodes_attribute is not None:
@@ -58,9 +60,16 @@ def hyper_search(trial, x, y, cv, nodes_attribute, n_classes):
     return np.mean(scores)
 
 
-def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int, trials_optuna: int,
-          callback_optuna: Callable, nodes_attribute: Optional[pd.DataFrame] = None,
-          seed: int = 1) -> tuple[float, float, float]:
+def train(
+    inputs: pd.DataFrame,
+    outputs: pd.DataFrame,
+    test_size: float,
+    k: int,
+    trials_optuna: int,
+    callback_optuna: Callable,
+    nodes_attribute: Optional[pd.DataFrame] = None,
+    seed: int = 1,
+) -> tuple[float, float, float]:
     """
     Perform training, validation and test phases over a provided dataset using XGBoost.
 
@@ -81,8 +90,9 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     n_classes = outputs["label"].nunique()
 
     # Split teams for training and for test.
-    x_train, x_test, y_train, y_test = train_test_split(inputs, outputs, test_size=test_size,
-                                                        stratify=outputs, random_state=seed)
+    x_train, x_test, y_train, y_test = train_test_split(
+        inputs, outputs, test_size=test_size, stratify=outputs, random_state=seed
+    )
 
     # Ravel label for models.
     y_train, y_test = y_train.values.ravel(), y_test.values.ravel()
@@ -95,8 +105,12 @@ def train(inputs: pd.DataFrame, outputs: pd.DataFrame, test_size: float, k: int,
     direction = "maximize"
     callback_optuna.direction = direction
     study = optuna.create_study(direction=direction, sampler=TPESampler(multivariate=True, seed=seed))
-    study.optimize(lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute, n_classes),
-                   callbacks=[callback_optuna], n_trials=trials_optuna, show_progress_bar=True)
+    study.optimize(
+        lambda x: hyper_search(x, x_train, y_train, cv, nodes_attribute, n_classes),
+        callbacks=[callback_optuna],
+        n_trials=trials_optuna,
+        show_progress_bar=True,
+    )
 
     # Defining parameter range.
     best_params = study.best_params
