@@ -1,6 +1,7 @@
 import math
-import torch
 import types
+
+import torch
 
 
 def uniform(size, tensor):

@@ -1,18 +1,18 @@
-import os
-import re
 import inspect
+import os
 import os.path as osp
-from uuid import uuid1
-from itertools import chain
+import re
 from inspect import Parameter
+from itertools import chain
 from typing import List, Optional, Set
-from torch_geometric.typing import Adj, Size
+from uuid import uuid1
 
 import torch
-from torch import Tensor
 from jinja2 import Template
-from torch_sparse import SparseTensor
+from torch import Tensor
+from torch_geometric.typing import Adj, Size
 from torch_scatter import gather_csr, scatter, segment_csr
+from torch_sparse import SparseTensor
 
 from .utils.helpers import expand_left
 from .utils.inspector import Inspector
@@ -45,20 +45,27 @@ class MessagePassing(torch.nn.Module):
     """
 
     special_args: Set[str] = {
-        'edge_index', 'adj_t', 'edge_index_i', 'edge_index_j', 'size',
-        'size_i', 'size_j', 'ptr', 'index', 'dim_size'
+        "edge_index",
+        "adj_t",
+        "edge_index_i",
+        "edge_index_j",
+        "size",
+        "size_i",
+        "size_j",
+        "ptr",
+        "index",
+        "dim_size",
     }
 
-    def __init__(self, aggr: Optional[str] = "add",
-                 flow: str = "source_to_target", node_dim: int = -2):
+    def __init__(self, aggr: Optional[str] = "add", flow: str = "source_to_target", node_dim: int = -2):
 
         super(MessagePassing, self).__init__()
 
         self.aggr = aggr
-        assert self.aggr in ['sum', 'mean', 'max', 'min']
+        assert self.aggr in ["sum", "mean", "max", "min"]
 
         self.flow = flow
-        assert self.flow in ['source_to_target', 'target_to_source']
+        assert self.flow in ["source_to_target", "target_to_source"]
 
         self.node_dim = node_dim
 
@@ -68,13 +75,13 @@ class MessagePassing(torch.nn.Module):
         self.inspector.inspect(self.message_and_aggregate, pop_first=True)
         self.inspector.inspect(self.update, pop_first=True)
 
-        self.__user_args__ = self.inspector.keys(
-            ['message', 'aggregate', 'update']).difference(self.special_args)
-        self.__fused_user_args__ = self.inspector.keys(
-            ['message_and_aggregate', 'update']).difference(self.special_args)
+        self.__user_args__ = self.inspector.keys(["message", "aggregate", "update"]).difference(self.special_args)
+        self.__fused_user_args__ = self.inspector.keys(["message_and_aggregate", "update"]).difference(
+            self.special_args
+        )
 
         # Support for "fused" message passing.
-        self.fuse = self.inspector.implements('message_and_aggregate')
+        self.fuse = self.inspector.implements("message_and_aggregate")
 
         # Support for GNNExplainer.
         self.__explain__ = False
@@ -93,21 +100,27 @@ class MessagePassing(torch.nn.Module):
             return the_size
 
         elif isinstance(edge_index, SparseTensor):
-            if self.flow == 'target_to_source':
+            if self.flow == "target_to_source":
                 raise ValueError(
-                    ('Flow direction "target_to_source" is invalid for '
-                     'message propagation via `torch_sparse.SparseTensor`. If '
-                     'you really want to make use of a reverse message '
-                     'passing flow, pass in the transposed sparse tensor to '
-                     'the message passing module, e.g., `adj_t.t()`.'))
+                    (
+                        'Flow direction "target_to_source" is invalid for '
+                        "message propagation via `torch_sparse.SparseTensor`. If "
+                        "you really want to make use of a reverse message "
+                        "passing flow, pass in the transposed sparse tensor to "
+                        "the message passing module, e.g., `adj_t.t()`."
+                    )
+                )
             the_size[0] = edge_index.sparse_size(1)
             the_size[1] = edge_index.sparse_size(0)
             return the_size
 
         raise ValueError(
-            ('`MessagePassing.propagate` only supports `torch.LongTensor` of '
-             'shape `[2, num_messages]` or `torch_sparse.SparseTensor` for '
-             'argument `edge_index`.'))
+            (
+                "`MessagePassing.propagate` only supports `torch.LongTensor` of "
+                "shape `[2, num_messages]` or `torch_sparse.SparseTensor` for "
+                "argument `edge_index`."
+            )
+        )
 
     def __set_size__(self, size: List[Optional[int]], dim: int, src: Tensor):
         the_size = size[dim]
@@ -115,8 +128,11 @@ class MessagePassing(torch.nn.Module):
             size[dim] = src.size(self.node_dim)
         elif the_size != src.size(self.node_dim):
             raise ValueError(
-                (f'Encountered tensor with size {src.size(self.node_dim)} in '
-                 f'dimension {self.node_dim}, but expected size {the_size}.'))
+                (
+                    f"Encountered tensor with size {src.size(self.node_dim)} in "
+                    f"dimension {self.node_dim}, but expected size {the_size}."
+                )
+            )
 
     def __lift__(self, src, edge_index, dim):
         if isinstance(edge_index, Tensor):
@@ -133,14 +149,14 @@ class MessagePassing(torch.nn.Module):
         raise ValueError
 
     def __collect__(self, args, edge_index, size, kwargs):
-        i, j = (1, 0) if self.flow == 'source_to_target' else (0, 1)
+        i, j = (1, 0) if self.flow == "source_to_target" else (0, 1)
 
         out = {}
         for arg in args:
-            if arg[-2:] not in ['_i', '_j']:
+            if arg[-2:] not in ["_i", "_j"]:
                 out[arg] = kwargs.get(arg, Parameter.empty)
             else:
-                dim = 0 if arg[-2:] == '_j' else 1
+                dim = 0 if arg[-2:] == "_j" else 1
                 data = kwargs.get(arg[:-2], Parameter.empty)
 
                 if isinstance(data, (tuple, list)):
@@ -151,32 +167,31 @@ class MessagePassing(torch.nn.Module):
 
                 if isinstance(data, Tensor):
                     self.__set_size__(size, dim, data)
-                    data = self.__lift__(data, edge_index,
-                                         j if arg[-2:] == '_j' else i)
+                    data = self.__lift__(data, edge_index, j if arg[-2:] == "_j" else i)
 
                 out[arg] = data
 
         if isinstance(edge_index, Tensor):
-            out['adj_t'] = None
-            out['edge_index'] = edge_index
-            out['edge_index_i'] = edge_index[i]
-            out['edge_index_j'] = edge_index[j]
-            out['ptr'] = None
+            out["adj_t"] = None
+            out["edge_index"] = edge_index
+            out["edge_index_i"] = edge_index[i]
+            out["edge_index_j"] = edge_index[j]
+            out["ptr"] = None
         elif isinstance(edge_index, SparseTensor):
-            out['adj_t'] = edge_index
-            out['edge_index'] = None
-            out['edge_index_i'] = edge_index.storage.row()
-            out['edge_index_j'] = edge_index.storage.col()
-            out['ptr'] = edge_index.storage.rowptr()
-            out['edge_weight'] = edge_index.storage.value()
-            out['edge_attr'] = edge_index.storage.value()
-            out['edge_type'] = edge_index.storage.value()
+            out["adj_t"] = edge_index
+            out["edge_index"] = None
+            out["edge_index_i"] = edge_index.storage.row()
+            out["edge_index_j"] = edge_index.storage.col()
+            out["ptr"] = edge_index.storage.rowptr()
+            out["edge_weight"] = edge_index.storage.value()
+            out["edge_attr"] = edge_index.storage.value()
+            out["edge_type"] = edge_index.storage.value()
 
-        out['index'] = out['edge_index_i']
-        out['size'] = size
-        out['size_i'] = size[1] or size[0]
-        out['size_j'] = size[0] or size[1]
-        out['dim_size'] = out['size_i']
+        out["index"] = out["edge_index_i"]
+        out["size"] = size
+        out["size_i"] = size[1] or size[0]
+        out["size_j"] = size[0] or size[1]
+        out["dim_size"] = out["size_i"]
 
         return out
 
@@ -213,24 +228,20 @@ class MessagePassing(torch.nn.Module):
         size = self.__check_input__(edge_index, size)
 
         # Run "fused" message and aggregation (if applicable).
-        if (isinstance(edge_index, SparseTensor) and self.fuse
-                and not self.__explain__):
-            coll_dict = self.__collect__(self.__fused_user_args__, edge_index,
-                                         size, kwargs)
+        if isinstance(edge_index, SparseTensor) and self.fuse and not self.__explain__:
+            coll_dict = self.__collect__(self.__fused_user_args__, edge_index, size, kwargs)
 
-            msg_aggr_kwargs = self.inspector.distribute(
-                'message_and_aggregate', coll_dict)
+            msg_aggr_kwargs = self.inspector.distribute("message_and_aggregate", coll_dict)
             out = self.message_and_aggregate(edge_index, **msg_aggr_kwargs)
 
-            update_kwargs = self.inspector.distribute('update', coll_dict)
+            update_kwargs = self.inspector.distribute("update", coll_dict)
             return self.update(out, **update_kwargs)
 
         # Otherwise, run both functions in separation.
         elif isinstance(edge_index, Tensor) or not self.fuse:
-            coll_dict = self.__collect__(self.__user_args__, edge_index, size,
-                                         kwargs)
+            coll_dict = self.__collect__(self.__user_args__, edge_index, size, kwargs)
 
-            msg_kwargs = self.inspector.distribute('message', coll_dict)
+            msg_kwargs = self.inspector.distribute("message", coll_dict)
             out = self.message(**msg_kwargs)
 
             # For `GNNExplainer`, we require a separate message and aggregate
@@ -246,10 +257,10 @@ class MessagePassing(torch.nn.Module):
                 assert out.size(self.node_dim) == edge_mask.size(0)
                 out = out * edge_mask.view([-1] + [1] * (out.dim() - 1))
 
-            aggr_kwargs = self.inspector.distribute('aggregate', coll_dict)
+            aggr_kwargs = self.inspector.distribute("aggregate", coll_dict)
             out = self.aggregate(out, **aggr_kwargs)
 
-            update_kwargs = self.inspector.distribute('update', coll_dict)
+            update_kwargs = self.inspector.distribute("update", coll_dict)
             return self.update(out, **update_kwargs)
 
     def message(self, x_j: Tensor) -> Tensor:
@@ -264,7 +275,7 @@ class MessagePassing(torch.nn.Module):
         """
         return x_j
 
-    def aggregate(self, inputs, index, edge_weight = None, ptr = None, dim_size = None):
+    def aggregate(self, inputs, index, edge_weight=None, ptr=None, dim_size=None):
         """Aggregates messages from neighbors as
         `\square_{j \in \mathcal{N}(i)}`.
 

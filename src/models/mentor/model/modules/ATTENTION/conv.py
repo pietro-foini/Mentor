@@ -1,6 +1,6 @@
 import torch
-from torch_scatter import scatter_add
 from torch_geometric.utils import softmax
+from torch_scatter import scatter_add
 
 from ..inits import reset
 
@@ -47,5 +47,4 @@ class GlobalAttention(torch.nn.Module):
         return out, gate
 
     def __repr__(self):
-        return '{}(gate_nn={}, nn={})'.format(self.__class__.__name__,
-                                              self.gate_nn, self.nn)
+        return "{}(gate_nn={}, nn={})".format(self.__class__.__name__, self.gate_nn, self.nn)

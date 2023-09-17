@@ -1,11 +1,11 @@
-from torch import Tensor
 import torch.nn.functional as F
-from torch.nn import Parameter, Linear
+from torch import Tensor
+from torch.nn import Linear, Parameter
+from torch_geometric.utils import add_self_loops, remove_self_loops, softmax
 from torch_sparse import SparseTensor, set_diag
-from torch_geometric.utils import remove_self_loops, add_self_loops, softmax
 
-from .message_passing import MessagePassing
 from ..inits import *
+from .message_passing import MessagePassing
 
 
 class GATv2Conv(MessagePassing):
@@ -34,12 +34,20 @@ class GATv2Conv(MessagePassing):
             :class:`torch_geometric.nn.conv.MessagePassing`.
     """
 
-    def __init__(self, in_channels,
-                 out_channels, heads=1, concat=True,
-                 negative_slope=0.2, dropout=0., init_func=None,
-                 add_self_loops=True, bias=True,
-                 share_weights=False,
-                 **kwargs):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        heads=1,
+        concat=True,
+        negative_slope=0.2,
+        dropout=0.0,
+        init_func=None,
+        add_self_loops=True,
+        bias=True,
+        share_weights=False,
+        **kwargs
+    ):
         super(GATv2Conv, self).__init__(node_dim=0, **kwargs)
 
         self.in_channels = in_channels
@@ -64,7 +72,7 @@ class GATv2Conv(MessagePassing):
         elif bias and not concat:
             self.bias = Parameter(torch.Tensor(out_channels))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
         self._alpha = None
 
@@ -143,13 +151,11 @@ class GATv2Conv(MessagePassing):
             if isinstance(edge_index, Tensor):
                 return out, (edge_index, alpha)
             elif isinstance(edge_index, SparseTensor):
-                return out, edge_index.set_value(alpha, layout='coo')
+                return out, edge_index.set_value(alpha, layout="coo")
         else:
             return out
 
-    def message(self, x_j, x_i,
-                index, ptr,
-                size_i):
+    def message(self, x_j, x_i, index, ptr, size_i):
         x = x_i + x_j
         x = F.leaky_relu(x, self.negative_slope)
         alpha = (x * self.att).sum(dim=-1)
@@ -159,6 +165,4 @@ class GATv2Conv(MessagePassing):
         return x_j * alpha.unsqueeze(-1)
 
     def __repr__(self):
-        return '{}({}, {}, heads={})'.format(self.__class__.__name__,
-                                             self.in_channels,
-                                             self.out_channels, self.heads)
+        return "{}({}, {}, heads={})".format(self.__class__.__name__, self.in_channels, self.out_channels, self.heads)
