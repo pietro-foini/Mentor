@@ -4,6 +4,7 @@ import os
 
 import pandas as pd
 from get_features import HandEngineeredFeatures
+from extra_features import extra_node_attributes, betweenness_centrality,pagerank_centrality
 from LR.model import train as lr_train
 from MLP.model import train as mlp_train
 from RF.model import train as rf_train
@@ -52,6 +53,12 @@ def parse_args():
         default="results/synthetic/position",
         help="The name of the folder where the results will be stored.",
     )
+    parser_user.add_argument(
+        "--extra_features",
+        type=bool,
+        default=False,
+        help="Whether to compute extra features or not",
+    )
 
     args = parser_user.parse_args()
 
@@ -71,6 +78,12 @@ def main():
     graph, teams_composition, teams_label, nodes_attribute, teams_members, _, _ = load_graph_information(
         args.dataset_path
     )
+
+    #Entry point for extra nodes attribute computation
+    if args.extra_features:
+        nodes_attribute = extra_node_attributes(nodes_attribute,teams_composition,graph,[betweenness_centrality,pagerank_centrality])
+
+    #print(nodes_attribute.columns)
 
     # Get the network features at team level.
     extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)
