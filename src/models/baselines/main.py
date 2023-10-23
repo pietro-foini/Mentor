@@ -3,8 +3,8 @@ import logging
 import os
 
 import pandas as pd
+from extra_features import betweenness_centrality, extra_node_attributes, pagerank_centrality
 from get_features import HandEngineeredFeatures
-from extra_features import extra_node_attributes, betweenness_centrality,pagerank_centrality
 from LR.model import train as lr_train
 from MLP.model import train as mlp_train
 from RF.model import train as rf_train
@@ -79,11 +79,11 @@ def main():
         args.dataset_path
     )
 
-    #Entry point for extra nodes attribute computation
+    # Entry point for extra nodes attribute computation.
     if args.extra_features:
-        nodes_attribute = extra_node_attributes(nodes_attribute,teams_composition,graph,[betweenness_centrality,pagerank_centrality])
-
-    #print(nodes_attribute.columns)
+        nodes_attribute = extra_node_attributes(
+            nodes_attribute, teams_composition, graph, [betweenness_centrality, pagerank_centrality]
+        )
 
     # Get the network features at team level.
     extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)
