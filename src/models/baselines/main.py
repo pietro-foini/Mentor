@@ -89,7 +89,6 @@ def main():
     extractor = HandEngineeredFeatures(graph, teams_composition, teams_label)
     # Get X features and y target points.
     inputs, outputs = extractor()
-    outputs["label"] = outputs["label"].astype(int)
 
     metrics = {}
     for seed in args.seeds:
