@@ -132,6 +132,6 @@ class HandEngineeredFeatures(object):
         # Get input features.
         inputs = teams.drop(["team", "label"], axis=1)
         # Get output targets.
-        outputs = teams[["label"]]
+        outputs = teams[["label"]].astype(int)
 
         return inputs, outputs
