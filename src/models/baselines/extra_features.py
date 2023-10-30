@@ -19,6 +19,12 @@ def extra_node_attributes(
     """
 
     if nodes_attribute is None:
+        
+        #loop over values in teams_composition, if value is None and not a list, then replace it with an empty list
+        for key, inner_list in teams_composition.items():
+            if inner_list is None:
+                teams_composition[key] = []
+        
         nodes_attribute = [
             (key, inner_val) for key, inner_list in teams_composition.items() for inner_val in inner_list
         ]
