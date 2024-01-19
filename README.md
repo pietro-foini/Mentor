@@ -1,6 +1,6 @@
 # Mentor
 
-This is a PyTorch implementation of Mentor (📖 [Modeling Teams Performance Using Deep Representational Learning on Graphs](https://arxiv.org/abs/2206.14741))
+This is a PyTorch implementation of Mentor (📖 [Modeling Teams Performance Using Deep Representational Learning on Graphs](https://link.springer.com/article/10.1140/epjds/s13688-023-00442-1?utm_source=rct_congratemailt&utm_medium=email&utm_campaign=oa_20240119&utm_content=10.1140/epjds/s13688-023-00442-1))
 
 Authors: Pietro Foini, Francesco Carli, Nicolò Gozzi, Nicola Perra, Rossano Schifanella
 
