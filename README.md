@@ -129,6 +129,23 @@ the outcome performance.
 
 MIT
 
+## How to Cite
+
+```
+@article{Carli2024,
+  author = {Carli, Francesco and Foini, Pietro and Gozzi, Nicolò and Perra, Nicola and Schifanella, Rossano},
+  title = {Modeling teams performance using deep representational learning on graphs},
+  journal = {EPJ Data Science},
+  volume = {13},
+  number = {1},
+  pages = {7},
+  year = {2024},
+  month = {January},
+  doi = {10.1140/epjds/s13688-023-00442-1},
+  url = {https://doi.org/10.1140/epjds/s13688-023-00442-1},
+}
+```
+
 ## Contacts
 
 Please open an issue or contact pietro.foini1@gmail.com with any questions. 🙂
